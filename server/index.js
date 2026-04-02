@@ -20,10 +20,8 @@ app.get("/api/health", (_req, res) => {
 app.get("/api/market/bitcoin", async (_req, res) => {
   try {
     const [ohlcResponse, marketResponse] = await Promise.all([
-      fetch("https://api.coingecko.com/api/v3/coins/bitcoin/ohlc?vs_currency=usd&days=1"),
-      fetch(
-        "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin&price_change_percentage=24h"
-      )
+      fetch("https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=24"),
+      fetch("https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT")
     ]);
 
     if (!ohlcResponse.ok || !marketResponse.ok) {
@@ -32,13 +30,28 @@ app.get("/api/market/bitcoin", async (_req, res) => {
       });
     }
 
-    const ohlc = await ohlcResponse.json();
-    const market = await marketResponse.json();
+    const ohlcRaw = await ohlcResponse.json();
+    const marketRaw = await marketResponse.json();
+
+    const ohlc = ohlcRaw.map((item) => [
+      item[0],
+      Number(item[1]),
+      Number(item[2]),
+      Number(item[3]),
+      Number(item[4])
+    ]);
+
+    const market = {
+      current_price: Number(marketRaw.lastPrice),
+      low_24h: Number(marketRaw.lowPrice),
+      high_24h: Number(marketRaw.highPrice),
+      price_change_percentage_24h: Number(marketRaw.priceChangePercent)
+    };
 
     return res.json({
       ok: true,
       ohlc,
-      market: market[0] || null
+      market
     });
   } catch (error) {
     return res.status(500).json({
