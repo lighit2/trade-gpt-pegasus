@@ -1,8 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "";
-
-const chartSeries = [42, 48, 45, 56, 54, 63, 60, 68, 64, 71, 69, 74];
+const candleSeries = [
+  { open: 24, close: 42, high: 52, low: 18 },
+  { open: 42, close: 36, high: 48, low: 28 },
+  { open: 36, close: 54, high: 62, low: 32 },
+  { open: 54, close: 50, high: 58, low: 44 },
+  { open: 50, close: 66, high: 74, low: 46 },
+  { open: 66, close: 61, high: 72, low: 55 },
+  { open: 61, close: 78, high: 86, low: 58 }
+];
 
 const latestNews = [
   {
@@ -30,17 +36,15 @@ const signalCards = [
 
 function App() {
   const [tab, setTab] = useState("home");
-  const [botStatus, setBotStatus] = useState("idle");
-  const [botMessage, setBotMessage] = useState("");
   const [isDepositOpen, setDepositOpen] = useState(false);
   const [depositInput, setDepositInput] = useState("20");
-  const [demoAmount, setDemoAmount] = useState(20);
+  const [demoAmount, setDemoAmount] = useState(0);
   const [demoProfit, setDemoProfit] = useState(0);
   const [demoPercent, setDemoPercent] = useState(0);
   const [isDemoRunning, setDemoRunning] = useState(false);
   const simulationRef = useRef(null);
 
-  const balance = useMemo(() => 24870 + demoProfit, [demoProfit]);
+  const balance = demoAmount + demoProfit;
   const featuredNews = latestNews.slice(0, 2);
 
   useEffect(() => {
@@ -52,12 +56,12 @@ function App() {
 
     tg.ready();
     tg.expand();
-    tg.setHeaderColor("#041008");
-    tg.setBackgroundColor("#020503");
+    tg.setHeaderColor("#010201");
+    tg.setBackgroundColor("#000000");
     tg.MainButton.setParams({
       text: "Пополнить баланс",
-      color: "#5eff98",
-      text_color: "#03110a",
+      color: "#31ff7a",
+      text_color: "#020503",
       is_active: true,
       is_visible: true
     });
@@ -82,37 +86,6 @@ function App() {
     };
   }, []);
 
-  const triggerBotTest = async () => {
-    setBotStatus("loading");
-    setBotMessage("");
-
-    try {
-      const response = await fetch(`${apiBaseUrl}/api/bot/test`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          text: "Pegasus test signal: neural engine online."
-        })
-      });
-
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.error || "Bot API request failed");
-      }
-
-      setBotStatus("success");
-      setBotMessage("Тестовое сообщение отправлено через бот API.");
-      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred("success");
-    } catch (error) {
-      setBotStatus("error");
-      setBotMessage(error.message);
-      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred("error");
-    }
-  };
-
   const showBetaWithdraw = () => {
     const message = "Вывод пока в бете.";
 
@@ -128,7 +101,7 @@ function App() {
     const amount = Number.parseFloat(depositInput);
 
     if (!Number.isFinite(amount) || amount <= 0) {
-      window.alert("Введите корректную сумму.");
+      window.alert("Введите сумму в долларах.");
       return;
     }
 
@@ -147,7 +120,7 @@ function App() {
 
     simulationRef.current = window.setInterval(() => {
       step += 1;
-      const delta = Math.random() * 1.6 - 0.45;
+      const delta = Math.random() * 1.8 - 0.6;
       percent = Math.max(-1.2, Math.min(10, Number((percent + delta).toFixed(2))));
       const profit = Number(((amount * percent) / 100).toFixed(2));
 
@@ -165,8 +138,8 @@ function App() {
   return (
     <div className="app-shell compact">
       <div className="noise"></div>
-      <div className="ambient ambient-gold"></div>
-      <div className="ambient ambient-blue"></div>
+      <div className="ambient ambient-left"></div>
+      <div className="ambient ambient-right"></div>
 
       <header className="topbar compact-topbar">
         <div>
@@ -174,83 +147,85 @@ function App() {
           <h1>Pegasus</h1>
         </div>
         <button className="live-chip" type="button">
-          {isDemoRunning ? "DEMO LIVE" : "AI READY"}
+          {isDemoRunning ? "LIVE" : "READY"}
         </button>
       </header>
 
       <main className="screen-stack compact-stack">
         {tab === "home" && (
           <section className="dense-layout">
-            <article className="hero-card compact-card">
-              <div className="balance-head">
-                <div>
+            <article className="compact-card hero-card">
+              <div className="balance-chart-row">
+                <div className="balance-side">
                   <p className="section-tag">Balance</p>
                   <h2>${balance.toFixed(2)}</h2>
+                  <div className="balance-actions">
+                    <button className="primary-button small-button" type="button" onClick={() => setDepositOpen(true)}>
+                      Пополнить
+                    </button>
+                    <button className="secondary-button small-button" type="button" onClick={showBetaWithdraw}>
+                      Вывести
+                    </button>
+                  </div>
                 </div>
-                <div className="balance-actions">
-                  <button className="primary-button small-button" type="button" onClick={() => setDepositOpen(true)}>
-                    Пополнить
-                  </button>
-                  <button className="secondary-button small-button" type="button" onClick={showBetaWithdraw}>
-                    Вывести
-                  </button>
+
+                <div className="candle-chart">
+                  {candleSeries.map((candle, index) => {
+                    const bullish = candle.close >= candle.open;
+                    const bodyTop = Math.max(candle.open, candle.close);
+                    const bodyBottom = Math.min(candle.open, candle.close);
+
+                    return (
+                      <div className="candle-col" key={index}>
+                        <div
+                          className="candle-wick"
+                          style={{
+                            top: `${100 - candle.high}%`,
+                            bottom: `${candle.low}%`
+                          }}
+                        ></div>
+                        <div
+                          className={bullish ? "candle-body bullish" : "candle-body bearish"}
+                          style={{
+                            top: `${100 - bodyTop}%`,
+                            height: `${Math.max(bodyTop - bodyBottom, 6)}%`
+                          }}
+                        ></div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
               <div className="summary-grid">
                 <article className="mini-stat">
                   <span>Тренд рынка</span>
-                  <strong>Бычий</strong>
+                  <strong className="red-text">Бычий</strong>
                 </article>
                 <article className="mini-stat">
-                  <span>Demo PnL</span>
+                  <span>Доход</span>
                   <strong className={demoProfit >= 0 ? "green-text" : "red-text"}>
                     {demoProfit >= 0 ? "+" : ""}${demoProfit.toFixed(2)}
                   </strong>
                 </article>
                 <article className="mini-stat">
-                  <span>Доходность</span>
+                  <span>Процент</span>
                   <strong className={demoPercent >= 0 ? "green-text" : "red-text"}>
                     {demoPercent >= 0 ? "+" : ""}
                     {demoPercent.toFixed(2)}%
                   </strong>
                 </article>
               </div>
-
-              <div className="demo-banner">
-                <span>Demo mode</span>
-                <p>
-                  Симуляция движения суммы после пополнения. Это тестовый интерфейс, а не
-                  обещание фактической прибыли.
-                </p>
-              </div>
             </article>
 
-            <article className="glass-panel compact-card">
-              <div className="panel-head">
-                <div>
-                  <p className="section-tag">Mini Chart</p>
-                  <h3>BTC trend</h3>
-                </div>
-                <span className="green-text">Bullish</span>
-              </div>
-              <div className="micro-chart">
-                {chartSeries.map((value, index) => (
-                  <div className="micro-bar-wrap" key={`${value}-${index}`}>
-                    <div className="micro-bar" style={{ height: `${value}%` }}></div>
-                  </div>
-                ))}
-              </div>
-            </article>
-
-            <article className="glass-panel compact-card">
+            <article className="compact-card glass-panel">
               <div className="panel-head">
                 <div>
                   <p className="section-tag">Latest News</p>
                   <h3>Последние 2 новости</h3>
                 </div>
                 <button className="ghost-link" type="button" onClick={() => setTab("news")}>
-                  Все новости
+                  Все
                 </button>
               </div>
               <div className="signal-list">
@@ -262,7 +237,7 @@ function App() {
                     </div>
                     <div className="signal-meta">
                       <span>Тренд</span>
-                      <strong>{item.trend}</strong>
+                      <strong className="red-text">{item.trend}</strong>
                     </div>
                   </div>
                 ))}
@@ -273,13 +248,12 @@ function App() {
 
         {tab === "analytics" && (
           <section className="dense-layout">
-            <article className="glass-panel compact-card">
+            <article className="compact-card glass-panel">
               <div className="panel-head">
                 <div>
                   <p className="section-tag">Signals</p>
                   <h3>Текущая аналитика</h3>
                 </div>
-                <span className="green-text">AI online</span>
               </div>
               <div className="signal-list">
                 {signalCards.map((signal) => (
@@ -296,29 +270,17 @@ function App() {
                 ))}
               </div>
             </article>
-
-            <article className="glass-panel compact-card">
-              <p className="section-tag">Engine</p>
-              <div className="feature-grid compact-features">
-                <Feature title="News Brain" text="Оценивает последние новости по монетам." />
-                <Feature title="Trend Scan" text="Подсвечивает бычий или медвежий уклон." />
-                <Feature title="Risk View" text="Показывает тестовые сценарии для суммы." />
-              </div>
-            </article>
           </section>
         )}
 
         {tab === "news" && (
           <section className="dense-layout">
-            <article className="glass-panel compact-card">
+            <article className="compact-card glass-panel">
               <div className="panel-head">
                 <div>
                   <p className="section-tag">News Feed</p>
-                  <h3>Лента новостей по монетам</h3>
+                  <h3>Новости по монетам</h3>
                 </div>
-                <button className="ghost-link" type="button" onClick={triggerBotTest}>
-                  Тест бота
-                </button>
               </div>
               <div className="signal-list">
                 {latestNews.map((item) => (
@@ -329,33 +291,31 @@ function App() {
                     </div>
                     <div className="signal-meta">
                       <span>Тренд</span>
-                      <strong>{item.trend}</strong>
+                      <strong className="red-text">{item.trend}</strong>
                     </div>
                   </div>
                 ))}
               </div>
-              <StatusPill status={botStatus} message={botMessage} large />
             </article>
           </section>
         )}
 
         {tab === "wallet" && (
           <section className="dense-layout">
-            <article className="glass-panel compact-card">
+            <article className="compact-card glass-panel">
               <div className="panel-head">
                 <div>
                   <p className="section-tag">Wallet</p>
                   <h3>Управление балансом</h3>
                 </div>
-                <span className="green-text">beta</span>
               </div>
               <div className="wallet-grid">
                 <article className="mini-stat">
-                  <span>Сумма demo</span>
+                  <span>Сумма</span>
                   <strong>${demoAmount.toFixed(2)}</strong>
                 </article>
                 <article className="mini-stat">
-                  <span>Demo PnL</span>
+                  <span>PnL</span>
                   <strong className={demoProfit >= 0 ? "green-text" : "red-text"}>
                     {demoProfit >= 0 ? "+" : ""}${demoProfit.toFixed(2)}
                   </strong>
@@ -369,9 +329,6 @@ function App() {
                   Вывести
                 </button>
               </div>
-              <p className="wallet-note">
-                Демо-симуляция обновляет сумму раз в 5 секунд и показывает тестовый PnL.
-              </p>
             </article>
           </section>
         )}
@@ -392,21 +349,24 @@ function App() {
         <div className="modal-backdrop" onClick={() => setDepositOpen(false)} role="presentation">
           <div className="deposit-modal" onClick={(event) => event.stopPropagation()} role="dialog">
             <p className="section-tag">Пополнить баланс</p>
-            <h3>Введите сумму для demo-симуляции</h3>
-            <input
-              className="amount-input"
-              type="number"
-              min="1"
-              step="1"
-              value={depositInput}
-              onChange={(event) => setDepositInput(event.target.value)}
-            />
+            <h3>Введите сумму в долларах</h3>
+            <div className="amount-wrap">
+              <span className="amount-prefix">$</span>
+              <input
+                className="amount-input"
+                type="number"
+                min="1"
+                step="1"
+                value={depositInput}
+                onChange={(event) => setDepositInput(event.target.value)}
+              />
+            </div>
             <p className="wallet-note">
-              После запуска интерфейс будет каждые 5 секунд менять сумму и процент в demo-режиме.
+              После пополнения сумма будет меняться каждые 5 секунд в demo-режиме.
             </p>
             <div className="balance-actions wallet-actions">
               <button className="primary-button small-button" type="button" onClick={startDemoSimulation}>
-                Запустить demo
+                Пополнить баланс
               </button>
               <button className="secondary-button small-button" type="button" onClick={() => setDepositOpen(false)}>
                 Отмена
@@ -419,16 +379,6 @@ function App() {
   );
 }
 
-function Feature({ title, text }) {
-  return (
-    <article className="feature-card compact-feature-card">
-      <p className="section-tag">{title}</p>
-      <h3>{title}</h3>
-      <p>{text}</p>
-    </article>
-  );
-}
-
 function BottomNavButton({ label, isActive, onClick }) {
   return (
     <button className={isActive ? "bottom-button active" : "bottom-button"} type="button" onClick={onClick}>
@@ -436,28 +386,6 @@ function BottomNavButton({ label, isActive, onClick }) {
       {label}
     </button>
   );
-}
-
-function StatusPill({ status, message, large = false }) {
-  const text =
-    status === "loading"
-      ? "Отправка..."
-      : status === "success"
-        ? message
-        : status === "error"
-          ? message || "Ошибка отправки"
-          : "Бот еще не проверялся";
-
-  const className = [
-    "status-pill",
-    status === "success" ? "success" : "",
-    status === "error" ? "error" : "",
-    large ? "large" : ""
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  return <div className={className}>{text}</div>;
 }
 
 export default App;
