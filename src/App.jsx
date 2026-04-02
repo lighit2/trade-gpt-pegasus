@@ -1,37 +1,54 @@
 import { useEffect, useRef, useState } from "react";
 
 const candleSeries = [
-  { open: 24, close: 42, high: 52, low: 18 },
-  { open: 42, close: 36, high: 48, low: 28 },
-  { open: 36, close: 54, high: 62, low: 32 },
-  { open: 54, close: 50, high: 58, low: 44 },
-  { open: 50, close: 66, high: 74, low: 46 },
-  { open: 66, close: 61, high: 72, low: 55 },
-  { open: 61, close: 78, high: 86, low: 58 }
+  { open: 28, close: 33, high: 37, low: 24 },
+  { open: 33, close: 31, high: 36, low: 29 },
+  { open: 31, close: 36, high: 40, low: 30 },
+  { open: 36, close: 42, high: 46, low: 34 },
+  { open: 42, close: 40, high: 45, low: 38 },
+  { open: 40, close: 47, high: 52, low: 39 },
+  { open: 47, close: 44, high: 49, low: 41 },
+  { open: 44, close: 50, high: 56, low: 43 },
+  { open: 50, close: 55, high: 60, low: 48 },
+  { open: 55, close: 53, high: 58, low: 51 },
+  { open: 53, close: 59, high: 63, low: 52 },
+  { open: 59, close: 62, high: 68, low: 57 },
+  { open: 62, close: 60, high: 64, low: 58 },
+  { open: 60, close: 65, high: 71, low: 59 },
+  { open: 65, close: 69, high: 74, low: 63 },
+  { open: 69, close: 67, high: 72, low: 65 },
+  { open: 67, close: 73, high: 78, low: 66 },
+  { open: 73, close: 77, high: 82, low: 71 },
+  { open: 77, close: 75, high: 80, low: 73 },
+  { open: 75, close: 81, high: 86, low: 74 },
+  { open: 81, close: 79, high: 84, low: 77 },
+  { open: 79, close: 85, high: 90, low: 78 },
+  { open: 85, close: 88, high: 94, low: 83 },
+  { open: 88, close: 92, high: 97, low: 87 }
 ];
 
 const latestNews = [
   {
     coin: "BTC",
-    headline: "ETF-потоки держатся выше ожиданий, крупный спрос сохраняется.",
+    headline: "ETF-потоки остаются сильными, спрос со стороны крупных игроков сохраняется.",
     trend: "Бычий"
   },
   {
     coin: "ETH",
-    headline: "Сетевые метрики растут, рынок ждет продолжение импульса.",
+    headline: "Рост сетевой активности усиливает интерес к активу на текущей неделе.",
     trend: "Бычий"
   },
   {
     coin: "SOL",
-    headline: "После локального роста идет фиксация, давление продавцов усилилось.",
+    headline: "После локального импульса рынок перешел в фиксацию и усилил давление продавцов.",
     trend: "Медвежий"
   }
 ];
 
 const signalCards = [
-  { pair: "BTC / USDT", trend: "Бычий", confidence: "94%" },
-  { pair: "ETH / USDT", trend: "Бычий", confidence: "89%" },
-  { pair: "SOL / USDT", trend: "Медвежий", confidence: "86%" }
+  { pair: "BTC / USDT", trend: "Бычий", confidence: "94%", note: "новостной фон сильный" },
+  { pair: "ETH / USDT", trend: "Бычий", confidence: "89%", note: "сеть усиливает импульс" },
+  { pair: "SOL / USDT", trend: "Медвежий", confidence: "86%", note: "идет фиксация прибыли" }
 ];
 
 function App() {
@@ -56,12 +73,12 @@ function App() {
 
     tg.ready();
     tg.expand();
-    tg.setHeaderColor("#010201");
+    tg.setHeaderColor("#020503");
     tg.setBackgroundColor("#000000");
     tg.MainButton.setParams({
       text: "Пополнить баланс",
-      color: "#31ff7a",
-      text_color: "#020503",
+      color: "#39ff88",
+      text_color: "#031108",
       is_active: true,
       is_visible: true
     });
@@ -120,8 +137,8 @@ function App() {
 
     simulationRef.current = window.setInterval(() => {
       step += 1;
-      const delta = Math.random() * 1.8 - 0.6;
-      percent = Math.max(-1.2, Math.min(10, Number((percent + delta).toFixed(2))));
+      const delta = Math.random() * 1.8 - 0.7;
+      percent = Math.max(-1.5, Math.min(10, Number((percent + delta).toFixed(2))));
       const profit = Number(((amount * percent) / 100).toFixed(2));
 
       setDemoPercent(percent);
@@ -136,40 +153,59 @@ function App() {
   };
 
   return (
-    <div className="app-shell compact">
-      <div className="noise"></div>
-      <div className="ambient ambient-left"></div>
-      <div className="ambient ambient-right"></div>
+    <div className="app-shell">
+      <div className="grid-glow glow-left"></div>
+      <div className="grid-glow glow-right"></div>
 
-      <header className="topbar compact-topbar">
+      <header className="topbar">
         <div>
-          <p className="eyebrow">Neural Trade Assistant</p>
+          <p className="eyebrow">Neural Crypto Desk</p>
           <h1>Pegasus</h1>
         </div>
-        <button className="live-chip" type="button">
-          {isDemoRunning ? "LIVE" : "READY"}
-        </button>
+        <div className="status-chip">{isDemoRunning ? "SIMULATION LIVE" : "AI READY"}</div>
       </header>
 
-      <main className="screen-stack compact-stack">
+      <main className="main-area">
         {tab === "home" && (
-          <section className="dense-layout">
-            <article className="compact-card hero-card">
-              <div className="balance-chart-row">
-                <div className="balance-side">
-                  <p className="section-tag">Balance</p>
-                  <h2>${balance.toFixed(2)}</h2>
-                  <div className="balance-actions">
-                    <button className="primary-button small-button" type="button" onClick={() => setDepositOpen(true)}>
-                      Пополнить
-                    </button>
-                    <button className="secondary-button small-button" type="button" onClick={showBetaWithdraw}>
-                      Вывести
-                    </button>
+          <section className="home-layout">
+            <section className="hero-panel">
+              <div className="balance-panel panel">
+                <p className="section-tag">Portfolio Balance</p>
+                <div className="balance-value">$ {balance.toFixed(2)}</div>
+                <div className="pnl-line">
+                  <span>Доход:</span>
+                  <strong className={demoProfit >= 0 ? "positive" : "negative"}>
+                    {demoProfit >= 0 ? "+" : ""}${demoProfit.toFixed(2)}
+                  </strong>
+                  <strong className={demoPercent >= 0 ? "positive" : "negative"}>
+                    {demoPercent >= 0 ? "+" : ""}
+                    {demoPercent.toFixed(2)}%
+                  </strong>
+                </div>
+                <div className="action-row">
+                  <button className="primary-button" type="button" onClick={() => setDepositOpen(true)}>
+                    Пополнить
+                  </button>
+                  <button className="secondary-button" type="button" onClick={showBetaWithdraw}>
+                    Вывести
+                  </button>
+                </div>
+                <div className="market-row">
+                  <span>Тренд рынка</span>
+                  <strong className="negative">Бычий</strong>
+                </div>
+              </div>
+
+              <div className="chart-panel panel">
+                <div className="chart-head">
+                  <div>
+                    <p className="section-tag">Live Candles</p>
+                    <h2>BTC / USDT</h2>
                   </div>
+                  <div className="chart-badge">24h</div>
                 </div>
 
-                <div className="candle-chart">
+                <div className="candle-grid">
                   {candleSeries.map((candle, index) => {
                     const bullish = candle.close >= candle.open;
                     const bodyTop = Math.max(candle.open, candle.close);
@@ -188,82 +224,91 @@ function App() {
                           className={bullish ? "candle-body bullish" : "candle-body bearish"}
                           style={{
                             top: `${100 - bodyTop}%`,
-                            height: `${Math.max(bodyTop - bodyBottom, 6)}%`
+                            height: `${Math.max(bodyTop - bodyBottom, 4)}%`
                           }}
                         ></div>
                       </div>
                     );
                   })}
                 </div>
-              </div>
 
-              <div className="summary-grid">
-                <article className="mini-stat">
-                  <span>Тренд рынка</span>
-                  <strong className="red-text">Бычий</strong>
-                </article>
-                <article className="mini-stat">
-                  <span>Доход</span>
-                  <strong className={demoProfit >= 0 ? "green-text" : "red-text"}>
-                    {demoProfit >= 0 ? "+" : ""}${demoProfit.toFixed(2)}
-                  </strong>
-                </article>
-                <article className="mini-stat">
-                  <span>Процент</span>
-                  <strong className={demoPercent >= 0 ? "green-text" : "red-text"}>
-                    {demoPercent >= 0 ? "+" : ""}
-                    {demoPercent.toFixed(2)}%
-                  </strong>
-                </article>
-              </div>
-            </article>
-
-            <article className="compact-card glass-panel">
-              <div className="panel-head">
-                <div>
-                  <p className="section-tag">Latest News</p>
-                  <h3>Последние 2 новости</h3>
+                <div className="chart-footer">
+                  <span>AI bias: strong accumulation</span>
+                  <strong className="positive">+ bullish structure</strong>
                 </div>
-                <button className="ghost-link" type="button" onClick={() => setTab("news")}>
-                  Все
-                </button>
               </div>
-              <div className="signal-list">
-                {featuredNews.map((item) => (
-                  <div className="signal-row compact-row" key={item.coin}>
-                    <div>
-                      <strong>{item.coin}</strong>
-                      <p>{item.headline}</p>
-                    </div>
-                    <div className="signal-meta">
-                      <span>Тренд</span>
-                      <strong className="red-text">{item.trend}</strong>
-                    </div>
+            </section>
+
+            <section className="cards-row">
+              <article className="panel compact-panel">
+                <div className="card-head">
+                  <div>
+                    <p className="section-tag">Latest News</p>
+                    <h3>Последние 2 новости</h3>
                   </div>
-                ))}
-              </div>
-            </article>
+                  <button className="ghost-link" type="button" onClick={() => setTab("news")}>
+                    Все
+                  </button>
+                </div>
+                <div className="news-list">
+                  {featuredNews.map((item) => (
+                    <div className="news-item" key={item.coin}>
+                      <div>
+                        <strong>{item.coin}</strong>
+                        <p>{item.headline}</p>
+                      </div>
+                      <span className="negative">{item.trend}</span>
+                    </div>
+                  ))}
+                </div>
+              </article>
+
+              <article className="panel compact-panel">
+                <div className="card-head">
+                  <div>
+                    <p className="section-tag">Market Stats</p>
+                    <h3>Ключевые метрики</h3>
+                  </div>
+                </div>
+                <div className="stat-grid">
+                  <div className="stat-box">
+                    <span>AI Scan</span>
+                    <strong>91.7%</strong>
+                  </div>
+                  <div className="stat-box">
+                    <span>Signals</span>
+                    <strong>8</strong>
+                  </div>
+                  <div className="stat-box">
+                    <span>Mode</span>
+                    <strong>Live</strong>
+                  </div>
+                </div>
+              </article>
+            </section>
           </section>
         )}
 
         {tab === "analytics" && (
-          <section className="dense-layout">
-            <article className="compact-card glass-panel">
-              <div className="panel-head">
+          <section className="single-column">
+            <article className="panel compact-panel">
+              <div className="card-head">
                 <div>
-                  <p className="section-tag">Signals</p>
+                  <p className="section-tag">Signal Matrix</p>
                   <h3>Текущая аналитика</h3>
                 </div>
               </div>
-              <div className="signal-list">
+              <div className="news-list">
                 {signalCards.map((signal) => (
-                  <div className="signal-row compact-row" key={signal.pair}>
+                  <div className="news-item signal-item" key={signal.pair}>
                     <div>
                       <strong>{signal.pair}</strong>
-                      <p>{signal.trend}</p>
+                      <p>{signal.note}</p>
                     </div>
-                    <div className="signal-meta">
-                      <span>Уверенность</span>
+                    <div className="signal-side">
+                      <span className={signal.trend === "Медвежий" ? "negative" : "positive"}>
+                        {signal.trend}
+                      </span>
                       <strong>{signal.confidence}</strong>
                     </div>
                   </div>
@@ -274,25 +319,24 @@ function App() {
         )}
 
         {tab === "news" && (
-          <section className="dense-layout">
-            <article className="compact-card glass-panel">
-              <div className="panel-head">
+          <section className="single-column">
+            <article className="panel compact-panel">
+              <div className="card-head">
                 <div>
                   <p className="section-tag">News Feed</p>
                   <h3>Новости по монетам</h3>
                 </div>
               </div>
-              <div className="signal-list">
+              <div className="news-list">
                 {latestNews.map((item) => (
-                  <div className="signal-row compact-row" key={item.coin}>
+                  <div className="news-item" key={item.coin}>
                     <div>
                       <strong>{item.coin}</strong>
                       <p>{item.headline}</p>
                     </div>
-                    <div className="signal-meta">
-                      <span>Тренд</span>
-                      <strong className="red-text">{item.trend}</strong>
-                    </div>
+                    <span className={item.trend === "Медвежий" ? "negative" : "negative"}>
+                      {item.trend}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -301,31 +345,31 @@ function App() {
         )}
 
         {tab === "wallet" && (
-          <section className="dense-layout">
-            <article className="compact-card glass-panel">
-              <div className="panel-head">
+          <section className="single-column">
+            <article className="panel compact-panel">
+              <div className="card-head">
                 <div>
                   <p className="section-tag">Wallet</p>
                   <h3>Управление балансом</h3>
                 </div>
               </div>
               <div className="wallet-grid">
-                <article className="mini-stat">
+                <div className="stat-box">
                   <span>Сумма</span>
-                  <strong>${demoAmount.toFixed(2)}</strong>
-                </article>
-                <article className="mini-stat">
+                  <strong>$ {demoAmount.toFixed(2)}</strong>
+                </div>
+                <div className="stat-box">
                   <span>PnL</span>
-                  <strong className={demoProfit >= 0 ? "green-text" : "red-text"}>
+                  <strong className={demoProfit >= 0 ? "positive" : "negative"}>
                     {demoProfit >= 0 ? "+" : ""}${demoProfit.toFixed(2)}
                   </strong>
-                </article>
+                </div>
               </div>
-              <div className="balance-actions wallet-actions">
-                <button className="primary-button small-button" type="button" onClick={() => setDepositOpen(true)}>
+              <div className="action-row wallet-buttons">
+                <button className="primary-button" type="button" onClick={() => setDepositOpen(true)}>
                   Пополнить
                 </button>
-                <button className="secondary-button small-button" type="button" onClick={showBetaWithdraw}>
+                <button className="secondary-button" type="button" onClick={showBetaWithdraw}>
                   Вывести
                 </button>
               </div>
@@ -334,20 +378,16 @@ function App() {
         )}
       </main>
 
-      <nav className="bottom-nav" aria-label="Основные разделы">
-        <BottomNavButton label="Главная" isActive={tab === "home"} onClick={() => setTab("home")} />
-        <BottomNavButton
-          label="Аналитика"
-          isActive={tab === "analytics"}
-          onClick={() => setTab("analytics")}
-        />
-        <BottomNavButton label="Новости" isActive={tab === "news"} onClick={() => setTab("news")} />
-        <BottomNavButton label="Баланс" isActive={tab === "wallet"} onClick={() => setTab("wallet")} />
+      <nav className="bottom-nav">
+        <BottomNavButton label="Главная" active={tab === "home"} onClick={() => setTab("home")} />
+        <BottomNavButton label="Аналитика" active={tab === "analytics"} onClick={() => setTab("analytics")} />
+        <BottomNavButton label="Новости" active={tab === "news"} onClick={() => setTab("news")} />
+        <BottomNavButton label="Баланс" active={tab === "wallet"} onClick={() => setTab("wallet")} />
       </nav>
 
       {isDepositOpen && (
         <div className="modal-backdrop" onClick={() => setDepositOpen(false)} role="presentation">
-          <div className="deposit-modal" onClick={(event) => event.stopPropagation()} role="dialog">
+          <div className="deposit-modal panel" onClick={(event) => event.stopPropagation()} role="dialog">
             <p className="section-tag">Пополнить баланс</p>
             <h3>Введите сумму в долларах</h3>
             <div className="amount-wrap">
@@ -361,14 +401,14 @@ function App() {
                 onChange={(event) => setDepositInput(event.target.value)}
               />
             </div>
-            <p className="wallet-note">
+            <p className="modal-note">
               После пополнения сумма будет меняться каждые 5 секунд в demo-режиме.
             </p>
-            <div className="balance-actions wallet-actions">
-              <button className="primary-button small-button" type="button" onClick={startDemoSimulation}>
+            <div className="action-row wallet-buttons">
+              <button className="primary-button" type="button" onClick={startDemoSimulation}>
                 Пополнить баланс
               </button>
-              <button className="secondary-button small-button" type="button" onClick={() => setDepositOpen(false)}>
+              <button className="secondary-button" type="button" onClick={() => setDepositOpen(false)}>
                 Отмена
               </button>
             </div>
@@ -379,10 +419,10 @@ function App() {
   );
 }
 
-function BottomNavButton({ label, isActive, onClick }) {
+function BottomNavButton({ label, active, onClick }) {
   return (
-    <button className={isActive ? "bottom-button active" : "bottom-button"} type="button" onClick={onClick}>
-      <span className="bottom-dot"></span>
+    <button className={active ? "bottom-button active" : "bottom-button"} type="button" onClick={onClick}>
+      <span className="bottom-icon"></span>
       {label}
     </button>
   );

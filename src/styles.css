@@ -3,15 +3,15 @@
 :root {
   --bg: #000000;
   --panel: #030603;
-  --panel-strong: #040904;
-  --line: rgba(49, 255, 122, 0.68);
-  --line-soft: rgba(49, 255, 122, 0.18);
-  --text: #ecfff2;
-  --muted: #8fb59b;
-  --green: #31ff7a;
-  --green-strong: #76ffab;
-  --red: #ff5353;
-  --shadow: 0 16px 40px rgba(0, 0, 0, 0.34);
+  --panel-alt: #060b06;
+  --line: rgba(57, 255, 136, 0.75);
+  --line-soft: rgba(57, 255, 136, 0.18);
+  --text: #effff4;
+  --muted: #8cac96;
+  --green: #39ff88;
+  --green-soft: #91ffc0;
+  --red: #ff5151;
+  --shadow: 0 20px 45px rgba(0, 0, 0, 0.34);
 }
 
 * {
@@ -28,7 +28,9 @@ body {
   margin: 0;
   color: var(--text);
   font-family: "Manrope", sans-serif;
-  background: #000000;
+  background:
+    radial-gradient(circle at top left, rgba(57, 255, 136, 0.08), transparent 28%),
+    linear-gradient(180deg, #010201 0%, #000000 100%);
 }
 
 button,
@@ -37,63 +39,48 @@ input {
 }
 
 button {
-  border: 0;
   cursor: pointer;
 }
 
 .app-shell {
   position: relative;
-  width: min(100%, 520px);
+  width: min(100%, 560px);
   margin: 0 auto;
-  padding: 14px 12px 92px;
-  overflow: hidden;
+  padding: 16px 12px 92px;
 }
 
-.compact {
-  font-size: 13px;
-}
-
-.noise {
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(rgba(49, 255, 122, 0.05) 0.6px, transparent 0.6px);
-  background-size: 14px 14px;
-  opacity: 0.1;
-  pointer-events: none;
-}
-
-.ambient {
+.grid-glow {
   position: absolute;
   border-radius: 999px;
-  filter: blur(32px);
-  opacity: 0.22;
+  filter: blur(40px);
   pointer-events: none;
+  opacity: 0.18;
 }
 
-.ambient-left {
-  top: 80px;
-  left: -70px;
-  width: 180px;
-  height: 180px;
-  background: rgba(49, 255, 122, 0.2);
-}
-
-.ambient-right {
-  top: 220px;
-  right: -100px;
+.glow-left {
+  top: 120px;
+  left: -100px;
   width: 220px;
   height: 220px;
-  background: rgba(49, 255, 122, 0.16);
+  background: rgba(57, 255, 136, 0.18);
+}
+
+.glow-right {
+  top: 260px;
+  right: -120px;
+  width: 260px;
+  height: 260px;
+  background: rgba(57, 255, 136, 0.14);
 }
 
 .topbar,
-.screen-stack,
+.main-area,
 .bottom-nav {
   position: relative;
   z-index: 1;
 }
 
-.compact-topbar {
+.topbar {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -103,124 +90,112 @@ button {
 .eyebrow,
 .section-tag {
   margin: 0 0 6px;
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
   color: var(--green);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
   font-weight: 800;
 }
 
 .topbar h1,
-.hero-card h2,
-.glass-panel h3,
+.hero-panel h2,
+.panel h3,
 .deposit-modal h3 {
   margin: 0;
   font-family: "Space Grotesk", sans-serif;
 }
 
 .topbar h1 {
-  font-size: 30px;
+  font-size: 32px;
   letter-spacing: -0.05em;
 }
 
-.live-chip,
-.secondary-button,
+.status-chip,
 .ghost-link,
+.secondary-button,
 .bottom-button,
 .amount-input {
   color: var(--text);
-  background: #010201;
+  background: rgba(4, 8, 4, 0.96);
   border: 1px solid var(--line);
 }
 
-.live-chip {
+.status-chip {
   min-height: 34px;
   padding: 0 12px;
+  display: flex;
+  align-items: center;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
 }
 
-.compact-stack,
-.dense-layout {
+.main-area,
+.home-layout,
+.cards-row,
+.single-column {
   display: grid;
   gap: 10px;
 }
 
-.compact-card,
-.deposit-modal {
-  border: 1px solid var(--line);
-  background: linear-gradient(180deg, #030603, #010201);
-  box-shadow: var(--shadow);
-  border-radius: 18px;
+.hero-panel {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 10px;
 }
 
-.compact-card {
+.panel {
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(4, 9, 4, 0.98), rgba(1, 2, 1, 0.98));
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+
+.balance-panel,
+.compact-panel,
+.deposit-modal {
   padding: 14px;
 }
 
-.hero-card h2 {
-  font-size: 28px;
-  line-height: 0.95;
+.balance-value {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  margin-bottom: 10px;
 }
 
-.balance-chart-row,
-.balance-actions,
-.panel-head,
-.signal-row,
-.wallet-actions {
+.pnl-line,
+.market-row,
+.action-row,
+.card-head,
+.news-item,
+.wallet-buttons,
+.chart-head,
+.chart-footer {
   display: flex;
   justify-content: space-between;
   gap: 10px;
 }
 
-.balance-side {
-  min-width: 150px;
-}
-
-.balance-side h2 {
-  font-size: 30px;
-}
-
-.summary-grid,
-.wallet-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.wallet-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.mini-stat {
-  padding: 10px;
-  border-radius: 14px;
-  background: #010201;
-  border: 1px solid var(--line);
-}
-
-.mini-stat span,
-.signal-meta span {
-  display: block;
-  color: #c5e8d0;
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.mini-stat strong,
-.signal-row strong {
-  display: block;
-  margin-top: 6px;
-}
-
-.hero-text,
-.signal-row p,
-.wallet-note {
+.pnl-line,
+.market-row,
+.chart-footer,
+.modal-note,
+.news-item p {
   color: var(--muted);
+  font-size: 12px;
   line-height: 1.45;
+}
+
+.pnl-line strong,
+.market-row strong,
+.positive {
+  color: var(--green);
+}
+
+.negative {
+  color: var(--red);
 }
 
 .primary-button,
@@ -228,35 +203,64 @@ button {
   min-height: 40px;
   padding: 0 14px;
   border-radius: 12px;
-  font-weight: 800;
   font-size: 13px;
+  font-weight: 800;
 }
 
 .primary-button {
-  color: #020503;
-  background: linear-gradient(135deg, var(--green-strong), var(--green));
-  box-shadow: 0 10px 24px rgba(49, 255, 122, 0.18);
+  color: #031108;
+  border: 1px solid rgba(57, 255, 136, 0.9);
+  background: linear-gradient(135deg, var(--green-soft), var(--green));
+  box-shadow: 0 10px 24px rgba(57, 255, 136, 0.18);
 }
 
-.small-button {
-  min-width: 108px;
-}
-
-.candle-chart {
-  flex: 1;
-  min-height: 120px;
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 7px;
-  align-items: stretch;
-  padding: 10px;
-  border-radius: 16px;
+.secondary-button {
   border: 1px solid var(--line);
-  background: #010201;
+}
+
+.chart-head h2 {
+  font-size: 20px;
+}
+
+.chart-badge {
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  color: var(--green);
+}
+
+.chart-panel {
+  padding: 14px;
+}
+
+.candle-grid {
+  height: 188px;
+  margin-top: 12px;
+  padding: 12px 10px;
+  display: grid;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  gap: 4px;
+  align-items: stretch;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(57, 255, 136, 0.02), transparent),
+    repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc(100% / 6 - 1px),
+      rgba(57, 255, 136, 0.05) calc(100% / 6 - 1px),
+      rgba(57, 255, 136, 0.05) calc(100% / 6)
+    );
 }
 
 .candle-col {
   position: relative;
+  min-height: 100%;
 }
 
 .candle-wick {
@@ -264,23 +268,32 @@ button {
   left: 50%;
   transform: translateX(-50%);
   width: 2px;
-  background: var(--green);
+  background: rgba(255, 255, 255, 0.45);
 }
 
 .candle-body {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  width: 12px;
-  border-radius: 4px;
+  width: 10px;
+  border-radius: 3px;
 }
 
 .candle-body.bullish {
   background: var(--green);
+  box-shadow: 0 0 12px rgba(57, 255, 136, 0.12);
 }
 
 .candle-body.bearish {
   background: var(--red);
+}
+
+.cards-row {
+  grid-template-columns: 1fr 1fr;
+}
+
+.card-head h3 {
+  font-size: 18px;
 }
 
 .ghost-link {
@@ -290,40 +303,64 @@ button {
   font-size: 12px;
 }
 
-.signal-list {
+.news-list {
   display: grid;
   gap: 8px;
   margin-top: 12px;
 }
 
-.compact-row {
-  align-items: center;
+.news-item {
+  align-items: flex-start;
   padding: 12px;
+  border: 1px solid var(--line-soft);
   border-radius: 14px;
-  border: 1px solid var(--line);
-  background: #010201;
+  background: rgba(5, 10, 5, 0.95);
 }
 
-.signal-row p {
-  margin: 4px 0 0;
-  font-size: 12px;
+.news-item strong {
+  display: block;
+  margin-bottom: 4px;
 }
 
-.signal-meta {
-  text-align: right;
+.news-item p {
+  margin: 0;
 }
 
-.signal-meta strong {
+.stat-grid,
+.wallet-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.wallet-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.stat-box {
+  padding: 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: rgba(5, 10, 5, 0.95);
+}
+
+.stat-box span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.stat-box strong {
+  display: block;
+  margin-top: 6px;
   font-size: 18px;
-  color: var(--green);
 }
 
-.green-text {
-  color: var(--green);
-}
-
-.red-text {
-  color: var(--red);
+.signal-item .signal-side {
+  text-align: right;
 }
 
 .bottom-nav {
@@ -331,33 +368,33 @@ button {
   left: 50%;
   bottom: 10px;
   transform: translateX(-50%);
-  width: min(calc(100% - 24px), 520px);
+  width: min(calc(100% - 24px), 560px);
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   padding: 8px;
   border-radius: 18px;
-  background: #010201;
+  background: rgba(2, 5, 2, 0.98);
   border: 1px solid var(--line);
 }
 
 .bottom-button {
   min-height: 48px;
   border-radius: 14px;
-  font-size: 12px;
-  font-weight: 700;
   display: grid;
   justify-items: center;
   align-content: center;
-  gap: 4px;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .bottom-button.active {
-  background: rgba(49, 255, 122, 0.12);
+  background: rgba(57, 255, 136, 0.12);
   color: var(--green);
 }
 
-.bottom-dot {
+.bottom-icon {
   width: 8px;
   height: 8px;
   border-radius: 999px;
@@ -367,17 +404,16 @@ button {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  padding: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  background: rgba(0, 0, 0, 0.76);
   z-index: 20;
 }
 
 .deposit-modal {
-  width: min(100%, 360px);
-  padding: 16px;
+  width: min(100%, 380px);
 }
 
 .amount-wrap {
@@ -402,21 +438,29 @@ button {
   outline: none;
 }
 
-@media (max-width: 420px) {
-  .balance-chart-row,
-  .summary-grid,
-  .wallet-grid,
-  .panel-head,
-  .balance-actions,
-  .wallet-actions,
-  .signal-row {
+@media (max-width: 520px) {
+  .hero-panel,
+  .cards-row {
     grid-template-columns: 1fr;
+  }
+
+  .wallet-grid,
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .action-row,
+  .news-item,
+  .card-head {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .small-button,
-  .ghost-link {
-    width: 100%;
+  .balance-value {
+    font-size: 30px;
+  }
+
+  .candle-grid {
+    height: 170px;
   }
 }
