@@ -14,6 +14,14 @@ const aiStatus = [
   { label: "Выход", value: "AUTO" }
 ];
 
+const pinnedStory = {
+  coin: "PEGASUS x LYN",
+  title: "PEGASUS сделал коллаборацию с LYN. Теперь зарабатывать на AI-валюте стало еще проще.",
+  description: "Новый режим усиливает AI-скан новостей и ускоряет автопилот на монете LYN.",
+  trend: "Бычий",
+  pinned: true
+};
+
 function App() {
   const [tab, setTab] = useState("home");
   const [isDepositOpen, setDepositOpen] = useState(false);
@@ -24,10 +32,14 @@ function App() {
   const [isDemoRunning, setDemoRunning] = useState(false);
   const [marketData, setMarketData] = useState(null);
   const [latestNews, setLatestNews] = useState([]);
+  const [isHeroVisible, setHeroVisible] = useState(true);
+  const [isHeroClosing, setHeroClosing] = useState(false);
   const simulationRef = useRef(null);
+  const heroDismissRef = useRef(null);
 
   const balance = demoAmount + demoProfit;
-  const featuredNews = latestNews.slice(0, 2);
+  const newsFeed = useMemo(() => [pinnedStory, ...latestNews], [latestNews]);
+  const featuredNews = newsFeed.slice(0, 2);
   const candleSeries = useMemo(() => {
     if (!marketData?.ohlc?.length) {
       return [];
@@ -101,6 +113,10 @@ function App() {
     return () => {
       if (simulationRef.current) {
         window.clearInterval(simulationRef.current);
+      }
+
+      if (heroDismissRef.current) {
+        window.clearTimeout(heroDismissRef.current);
       }
     };
   }, []);
@@ -237,6 +253,19 @@ function App() {
     return `${value >= 0 ? "+" : "-"}${absValue.toFixed(2)}%`;
   };
 
+  const dismissHero = () => {
+    if (isHeroClosing) {
+      return;
+    }
+
+    setHeroClosing(true);
+    heroDismissRef.current = window.setTimeout(() => {
+      setHeroVisible(false);
+      setHeroClosing(false);
+      heroDismissRef.current = null;
+    }, 280);
+  };
+
   return (
     <div className="app-shell">
       <div className="grid-glow glow-left"></div>
@@ -262,23 +291,28 @@ function App() {
       <main className="main-area">
         {tab === "home" && (
           <section className="home-layout">
-            <article className="panel hero-banner">
-              <div className="hero-copy">
-                <p className="section-tag">AI Capital Autopilot</p>
-                <h2>Внеси баланс. Pegasus сам ищет, читает и ведет сделку.</h2>
-                <p>
-                  Нейросеть отслеживает последние новости, оценивает импульс и включает торговый автопилот
-                  без ручной рутины.
-                </p>
-              </div>
-              <div className="hero-tags">
-                {pitchTags.map((tag) => (
-                  <span className="hero-tag" key={tag}>
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </article>
+            {isHeroVisible && (
+              <article className={isHeroClosing ? "panel hero-banner closing" : "panel hero-banner"}>
+                <button className="hero-close" type="button" onClick={dismissHero} aria-label="Закрыть блок">
+                  x
+                </button>
+                <div className="hero-copy">
+                  <p className="section-tag">AI Capital Autopilot</p>
+                  <h2>Внеси баланс. Pegasus сам ищет, читает и ведет сделку.</h2>
+                  <p>
+                    Нейросеть отслеживает последние новости, оценивает импульс и включает торговый автопилот
+                    без ручной рутины.
+                  </p>
+                </div>
+                <div className="hero-tags">
+                  {pitchTags.map((tag) => (
+                    <span className="hero-tag" key={tag}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </article>
+            )}
 
             <section className="hero-panel">
               <div className="balance-panel panel">
@@ -403,8 +437,12 @@ function App() {
                 </div>
                 <div className="news-list">
                   {featuredNews.map((item, index) => (
-                    <div className="news-item" key={`${item.link || item.title}-${index}`}>
-                      <div>
+                    <div
+                      className={item.pinned ? "news-item pinned-item" : "news-item"}
+                      key={`${item.link || item.title}-${index}`}
+                    >
+                      <div className="news-copy">
+                        {item.pinned && <span className="pin-badge">Закреплено</span>}
                         <strong>{item.coin}</strong>
                         <p>{item.title || item.headline}</p>
                       </div>
@@ -499,9 +537,13 @@ function App() {
                 </div>
               </div>
               <div className="news-list">
-                {latestNews.map((item, index) => (
-                  <div className="news-item" key={`${item.link || item.title}-${index}`}>
-                    <div>
+                {newsFeed.map((item, index) => (
+                  <div
+                    className={item.pinned ? "news-item pinned-item" : "news-item"}
+                    key={`${item.link || item.title}-${index}`}
+                  >
+                    <div className="news-copy">
+                      {item.pinned && <span className="pin-badge">Закреплено</span>}
                       <strong>{item.coin}</strong>
                       <p>{item.title || item.headline}</p>
                     </div>
