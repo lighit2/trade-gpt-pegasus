@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const earningsSources = [
-  { name: "LYN flow execution", share: "1.8%", note: "бот удерживает импульс и берет свою долю с движения" },
-  { name: "BTC news reaction", share: "2.4%", note: "вход после сильных новостных всплесков и давления" },
-  { name: "ETH volatility range", share: "1.5%", note: "работа от резких колебаний и возвратов в диапазон" }
+  { name: "LYN impulse engine", share: "1.8%", note: "Pegasus входит после подтвержденного ускорения и берет часть движения." },
+  { name: "BTC news reaction", share: "2.4%", note: "Нейросеть читает новостной фон и заходит на сильной переоценке рынка." },
+  { name: "ETH volatility range", share: "1.5%", note: "Автопилот забирает короткие возвраты и резкие внутридневные колебания." }
+];
+
+const pitchTags = ["AI news scan", "autopilot entry", "smart risk exit"];
+
+const aiStatus = [
+  { label: "Скан новостей", value: "24/7" },
+  { label: "Вход в рынок", value: "AI" },
+  { label: "Выход", value: "AUTO" }
 ];
 
 function App() {
@@ -254,10 +262,35 @@ function App() {
       <main className="main-area">
         {tab === "home" && (
           <section className="home-layout">
+            <article className="panel hero-banner">
+              <div className="hero-copy">
+                <p className="section-tag">AI Capital Autopilot</p>
+                <h2>Внеси баланс. Pegasus сам ищет, читает и ведет сделку.</h2>
+                <p>
+                  Нейросеть отслеживает последние новости, оценивает импульс и включает торговый автопилот
+                  без ручной рутины.
+                </p>
+              </div>
+              <div className="hero-tags">
+                {pitchTags.map((tag) => (
+                  <span className="hero-tag" key={tag}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </article>
+
             <section className="hero-panel">
               <div className="balance-panel panel">
-                <p className="section-tag">Balance</p>
+                <p className="section-tag">Capital</p>
                 <div className="balance-value">$ {balance.toFixed(2)}</div>
+                <p className="balance-note">
+                  {demoAmount > 0
+                    ? isDemoRunning
+                      ? "Pegasus уже ведет позицию и пересчитывает доход в live-режиме."
+                      : "Сессия закрыта. Можно снова пополнить баланс и запустить AI."
+                    : "Внеси баланс, чтобы запустить AI-режим и передать работу алгоритму."}
+                </p>
                 <div className="action-row">
                   <button className="primary-button" type="button" onClick={() => setDepositOpen(true)}>
                     Пополнить
@@ -265,6 +298,10 @@ function App() {
                   <button className="secondary-button" type="button" onClick={showBetaWithdraw}>
                     Вывести
                   </button>
+                </div>
+                <div className="market-row">
+                  <span>Режим</span>
+                  <strong>AI Автопилот</strong>
                 </div>
                 <div className="market-row">
                   <span>Тренд рынка</span>
@@ -358,7 +395,7 @@ function App() {
                 <div className="card-head">
                   <div>
                     <p className="section-tag">News</p>
-                    <h3>Последние 2 новости</h3>
+                    <h3>Что Pegasus видит сейчас</h3>
                   </div>
                   <button className="ghost-link" type="button" onClick={() => setTab("news")}>
                     Все
@@ -380,23 +417,17 @@ function App() {
               <article className="panel compact-panel">
                 <div className="card-head">
                   <div>
-                    <p className="section-tag">Status</p>
-                    <h3>Ключевые метрики</h3>
+                    <p className="section-tag">Why Pegasus</p>
+                    <h3>Почему это выглядит как AI-бизнес</h3>
                   </div>
                 </div>
                 <div className="stat-grid">
-                  <div className="stat-box">
-                    <span>AI Scan</span>
-                    <strong>91.7%</strong>
-                  </div>
-                  <div className="stat-box">
-                    <span>Signals</span>
-                    <strong>8</strong>
-                  </div>
-                  <div className="stat-box">
-                    <span>Mode</span>
-                    <strong>Live</strong>
-                  </div>
+                  {aiStatus.map((item) => (
+                    <div className="stat-box" key={item.label}>
+                      <span>{item.label}</span>
+                      <strong>{item.value}</strong>
+                    </div>
+                  ))}
                 </div>
               </article>
             </section>
@@ -409,7 +440,7 @@ function App() {
               <div className="card-head">
                 <div>
                   <p className="section-tag">Income</p>
-                  <h3>Текущий доход</h3>
+                  <h3>Как выглядит доход в live-режиме</h3>
                 </div>
                 {demoAmount > 0 && <div className="chart-badge">live</div>}
               </div>
@@ -437,7 +468,7 @@ function App() {
               <div className="card-head">
                 <div>
                   <p className="section-tag">Engine</p>
-                  <h3>На чем бот зарабатывает</h3>
+                  <h3>На чем Pegasus забирает процент</h3>
                 </div>
               </div>
               <div className="news-list">
