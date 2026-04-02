@@ -14,6 +14,9 @@ const aiStatus = [
   { label: "Выход", value: "AUTO" }
 ];
 
+const TAB_ORDER = ["home", "earnings", "news"];
+const TAB_TRANSITION_MS = 420;
+
 const pinnedStory = {
   coin: "PEGASUS x LYN",
   title: "PEGASUS сделал коллаборацию с LYN. Теперь зарабатывать на AI-валюте стало еще проще.",
@@ -34,8 +37,12 @@ function App() {
   const [latestNews, setLatestNews] = useState([]);
   const [isHeroVisible, setHeroVisible] = useState(true);
   const [isHeroClosing, setHeroClosing] = useState(false);
+  const [outgoingTab, setOutgoingTab] = useState(null);
+  const [isTabAnimating, setTabAnimating] = useState(false);
+  const [tabDirection, setTabDirection] = useState(1);
   const simulationRef = useRef(null);
   const heroDismissRef = useRef(null);
+  const tabTransitionRef = useRef(null);
 
   const balance = demoAmount + demoProfit;
   const newsFeed = useMemo(() => [pinnedStory, ...latestNews], [latestNews]);
@@ -117,6 +124,10 @@ function App() {
 
       if (heroDismissRef.current) {
         window.clearTimeout(heroDismissRef.current);
+      }
+
+      if (tabTransitionRef.current) {
+        window.clearTimeout(tabTransitionRef.current);
       }
     };
   }, []);
@@ -266,6 +277,303 @@ function App() {
     }, 280);
   };
 
+  const handleTabChange = (nextTab) => {
+    if (nextTab === tab || isTabAnimating) {
+      return;
+    }
+
+    const currentIndex = TAB_ORDER.indexOf(tab);
+    const nextIndex = TAB_ORDER.indexOf(nextTab);
+    const direction = nextIndex > currentIndex ? 1 : -1;
+
+    if (tabTransitionRef.current) {
+      window.clearTimeout(tabTransitionRef.current);
+    }
+
+    setOutgoingTab(tab);
+    setTabDirection(direction);
+    setTabAnimating(true);
+    setTab(nextTab);
+
+    tabTransitionRef.current = window.setTimeout(() => {
+      setOutgoingTab(null);
+      setTabAnimating(false);
+      tabTransitionRef.current = null;
+    }, TAB_TRANSITION_MS);
+  };
+
+  const renderTabContent = (currentTab) => {
+    if (currentTab === "home") {
+      return (
+        <section className="home-layout">
+          {isHeroVisible && (
+            <article className={isHeroClosing ? "panel hero-banner closing" : "panel hero-banner"}>
+              <button className="hero-close" type="button" onClick={dismissHero} aria-label="Закрыть блок">
+                x
+              </button>
+              <div className="hero-copy">
+                <p className="section-tag">AI Capital Autopilot</p>
+                <h2>Внеси баланс. Pegasus сам ищет, читает и ведет сделку.</h2>
+                <p>
+                  Нейросеть отслеживает последние новости, оценивает импульс и включает торговый автопилот
+                  без ручной рутины.
+                </p>
+              </div>
+              <div className="hero-tags">
+                {pitchTags.map((tag) => (
+                  <span className="hero-tag" key={tag}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </article>
+          )}
+
+          <section className="hero-panel">
+            <div className="balance-panel panel">
+              <p className="section-tag">Capital</p>
+              <div className="balance-value">$ {balance.toFixed(2)}</div>
+              <p className="balance-note">
+                {demoAmount > 0
+                  ? isDemoRunning
+                    ? "Pegasus уже ведет позицию и пересчитывает доход в live-режиме."
+                    : "Сессия закрыта. Можно снова пополнить баланс и запустить AI."
+                  : "Внеси баланс, чтобы запустить AI-режим и передать работу алгоритму."}
+              </p>
+              <div className="action-row">
+                <button className="primary-button" type="button" onClick={() => setDepositOpen(true)}>
+                  Пополнить
+                </button>
+                <button className="secondary-button" type="button" onClick={showBetaWithdraw}>
+                  Вывести
+                </button>
+              </div>
+              <div className="market-row">
+                <span>Режим</span>
+                <strong>AI Автопилот</strong>
+              </div>
+              <div className="market-row">
+                <span>Тренд рынка</span>
+                <strong className="negative">Бычий</strong>
+              </div>
+            </div>
+
+            <div className="chart-panel panel">
+              <div className="chart-head">
+                <div>
+                  <p className="section-tag">LYN Feed</p>
+                  <h2>LYN / USD</h2>
+                </div>
+                <div className="chart-meta">
+                  <div className="chart-badge">
+                    {marketData?.market?.current_price != null
+                      ? `$${formatMarketPrice(marketData.market.current_price)}`
+                      : "sync"}
+                  </div>
+                  {demoAmount > 0 && (
+                    <div className="profit-badge-mini">
+                      <span>Доход</span>
+                      <strong className={demoProfit >= 0 ? "positive" : "negative"}>
+                        {formatSignedMoney(demoProfit)}
+                      </strong>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div
+                className="candle-grid"
+                style={{ gridTemplateColumns: `repeat(${Math.max(candleSeries.length, 24)}, minmax(0, 1fr))` }}
+              >
+                {candleSeries.length > 0 ? (
+                  candleSeries.map((candle, index) => {
+                    const bullish = candle.close >= candle.open;
+                    const bodyTop = Math.max(candle.open, candle.close);
+                    const bodyBottom = Math.min(candle.open, candle.close);
+
+                    return (
+                      <div className="candle-col" key={index}>
+                        <div
+                          className="candle-wick"
+                          style={{
+                            top: `${100 - candleScale.normalize(candle.high)}%`,
+                            bottom: `${candleScale.normalize(candle.low)}%`
+                          }}
+                        ></div>
+                        <div
+                          className={bullish ? "candle-body bullish" : "candle-body bearish"}
+                          style={{
+                            top: `${100 - candleScale.normalize(bodyTop)}%`,
+                            height: `${Math.max(
+                              candleScale.normalize(bodyTop) - candleScale.normalize(bodyBottom),
+                              4
+                            )}%`
+                          }}
+                        ></div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="candle-empty">LIVE FEED</div>
+                )}
+              </div>
+
+              <div className="chart-footer">
+                <span>
+                  {marketData?.market
+                    ? `24h: ${formatMarketPrice(marketData.market.low_24h)} - ${formatMarketPrice(
+                        marketData.market.high_24h
+                      )}`
+                    : "подключение"}
+                </span>
+                <strong
+                  className={
+                    (marketData?.market?.price_change_percentage_24h ?? 0) >= 0 ? "positive" : "negative"
+                  }
+                >
+                  {marketData?.market?.price_change_percentage_24h != null
+                    ? `${marketData.market.price_change_percentage_24h.toFixed(2)}%`
+                    : "--"}
+                </strong>
+              </div>
+            </div>
+          </section>
+
+          <section className="cards-row">
+            <article className="panel compact-panel">
+              <div className="card-head">
+                <div>
+                  <p className="section-tag">News</p>
+                  <h3>Что Pegasus видит сейчас</h3>
+                </div>
+                <button className="ghost-link" type="button" onClick={() => handleTabChange("news")}>
+                  Все
+                </button>
+              </div>
+              <div className="news-list">
+                {featuredNews.map((item, index) => (
+                  <div
+                    className={item.pinned ? "news-item pinned-item" : "news-item"}
+                    key={`${item.link || item.title}-${index}`}
+                  >
+                    <div className="news-copy">
+                      {item.pinned && <span className="pin-badge">Закреплено</span>}
+                      <strong>{item.coin}</strong>
+                      <p>{item.title || item.headline}</p>
+                    </div>
+                    <span className={item.trend === "Медвежий" ? "negative" : "positive"}>{item.trend}</span>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="panel compact-panel">
+              <div className="card-head">
+                <div>
+                  <p className="section-tag">Why Pegasus</p>
+                  <h3>Почему это выглядит как AI-бизнес</h3>
+                </div>
+              </div>
+              <div className="stat-grid">
+                {aiStatus.map((item) => (
+                  <div className="stat-box" key={item.label}>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </div>
+                ))}
+              </div>
+            </article>
+          </section>
+        </section>
+      );
+    }
+
+    if (currentTab === "earnings") {
+      return (
+        <section className="single-column">
+          <article className="panel compact-panel">
+            <div className="card-head">
+              <div>
+                <p className="section-tag">Income</p>
+                <h3>Как выглядит доход в live-режиме</h3>
+              </div>
+              {demoAmount > 0 && <div className="chart-badge">live</div>}
+            </div>
+            <div className="stat-grid earnings-grid">
+              <div className="stat-box">
+                <span>Доход</span>
+                <strong className={demoProfit >= 0 ? "positive" : "negative"}>
+                  {demoAmount > 0 ? formatSignedMoney(demoProfit) : "$0.00"}
+                </strong>
+              </div>
+              <div className="stat-box">
+                <span>Процент</span>
+                <strong className={demoPercent >= 0 ? "positive" : "negative"}>
+                  {demoAmount > 0 ? formatSignedPercent(demoPercent) : "0.00%"}
+                </strong>
+              </div>
+              <div className="stat-box">
+                <span>Баланс</span>
+                <strong>$ {balance.toFixed(2)}</strong>
+              </div>
+            </div>
+          </article>
+
+          <article className="panel compact-panel">
+            <div className="card-head">
+              <div>
+                <p className="section-tag">Engine</p>
+                <h3>На чем Pegasus забирает процент</h3>
+              </div>
+            </div>
+            <div className="news-list">
+              {earningsSources.map((source) => (
+                <div className="news-item signal-item" key={source.name}>
+                  <div>
+                    <strong>{source.name}</strong>
+                    <p>{source.note}</p>
+                  </div>
+                  <div className="signal-side">
+                    <span>доля бота</span>
+                    <strong>{source.share}</strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+        </section>
+      );
+    }
+
+    return (
+      <section className="single-column">
+        <article className="panel compact-panel">
+          <div className="card-head">
+            <div>
+              <p className="section-tag">News Feed</p>
+              <h3>Новости по монетам</h3>
+            </div>
+          </div>
+          <div className="news-list">
+            {newsFeed.map((item, index) => (
+              <div
+                className={item.pinned ? "news-item pinned-item" : "news-item"}
+                key={`${item.link || item.title}-${index}`}
+              >
+                <div className="news-copy">
+                  {item.pinned && <span className="pin-badge">Закреплено</span>}
+                  <strong>{item.coin}</strong>
+                  <p>{item.title || item.headline}</p>
+                </div>
+                <span className={item.trend === "Медвежий" ? "negative" : "positive"}>{item.trend}</span>
+              </div>
+            ))}
+          </div>
+        </article>
+      </section>
+    );
+  };
+
   return (
     <div className="app-shell">
       <div className="grid-glow glow-left"></div>
@@ -289,283 +597,26 @@ function App() {
       </header>
 
       <main className="main-area">
-        {tab === "home" && (
-          <section className="home-layout">
-            {isHeroVisible && (
-              <article className={isHeroClosing ? "panel hero-banner closing" : "panel hero-banner"}>
-                <button className="hero-close" type="button" onClick={dismissHero} aria-label="Закрыть блок">
-                  x
-                </button>
-                <div className="hero-copy">
-                  <p className="section-tag">AI Capital Autopilot</p>
-                  <h2>Внеси баланс. Pegasus сам ищет, читает и ведет сделку.</h2>
-                  <p>
-                    Нейросеть отслеживает последние новости, оценивает импульс и включает торговый автопилот
-                    без ручной рутины.
-                  </p>
-                </div>
-                <div className="hero-tags">
-                  {pitchTags.map((tag) => (
-                    <span className="hero-tag" key={tag}>
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </article>
-            )}
-
-            <section className="hero-panel">
-              <div className="balance-panel panel">
-                <p className="section-tag">Capital</p>
-                <div className="balance-value">$ {balance.toFixed(2)}</div>
-                <p className="balance-note">
-                  {demoAmount > 0
-                    ? isDemoRunning
-                      ? "Pegasus уже ведет позицию и пересчитывает доход в live-режиме."
-                      : "Сессия закрыта. Можно снова пополнить баланс и запустить AI."
-                    : "Внеси баланс, чтобы запустить AI-режим и передать работу алгоритму."}
-                </p>
-                <div className="action-row">
-                  <button className="primary-button" type="button" onClick={() => setDepositOpen(true)}>
-                    Пополнить
-                  </button>
-                  <button className="secondary-button" type="button" onClick={showBetaWithdraw}>
-                    Вывести
-                  </button>
-                </div>
-                <div className="market-row">
-                  <span>Режим</span>
-                  <strong>AI Автопилот</strong>
-                </div>
-                <div className="market-row">
-                  <span>Тренд рынка</span>
-                  <strong className="negative">Бычий</strong>
-                </div>
-              </div>
-
-              <div className="chart-panel panel">
-                <div className="chart-head">
-                  <div>
-                    <p className="section-tag">LYN Feed</p>
-                    <h2>LYN / USD</h2>
-                  </div>
-                  <div className="chart-meta">
-                    <div className="chart-badge">
-                      {marketData?.market?.current_price != null
-                        ? `$${formatMarketPrice(marketData.market.current_price)}`
-                        : "sync"}
-                    </div>
-                    {demoAmount > 0 && (
-                      <div className="profit-badge-mini">
-                        <span>Доход</span>
-                        <strong className={demoProfit >= 0 ? "positive" : "negative"}>
-                          {formatSignedMoney(demoProfit)}
-                        </strong>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div
-                  className="candle-grid"
-                  style={{ gridTemplateColumns: `repeat(${Math.max(candleSeries.length, 24)}, minmax(0, 1fr))` }}
-                >
-                  {candleSeries.length > 0 ? (
-                    candleSeries.map((candle, index) => {
-                      const bullish = candle.close >= candle.open;
-                      const bodyTop = Math.max(candle.open, candle.close);
-                      const bodyBottom = Math.min(candle.open, candle.close);
-
-                      return (
-                        <div className="candle-col" key={index}>
-                          <div
-                            className="candle-wick"
-                            style={{
-                              top: `${100 - candleScale.normalize(candle.high)}%`,
-                              bottom: `${candleScale.normalize(candle.low)}%`
-                            }}
-                          ></div>
-                          <div
-                            className={bullish ? "candle-body bullish" : "candle-body bearish"}
-                            style={{
-                              top: `${100 - candleScale.normalize(bodyTop)}%`,
-                              height: `${Math.max(
-                                candleScale.normalize(bodyTop) - candleScale.normalize(bodyBottom),
-                                4
-                              )}%`
-                            }}
-                          ></div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="candle-empty">LIVE FEED</div>
-                  )}
-                </div>
-
-                <div className="chart-footer">
-                  <span>
-                    {marketData?.market
-                      ? `24h: ${formatMarketPrice(marketData.market.low_24h)} - ${formatMarketPrice(
-                          marketData.market.high_24h
-                        )}`
-                      : "подключение"}
-                  </span>
-                  <strong
-                    className={
-                      (marketData?.market?.price_change_percentage_24h ?? 0) >= 0 ? "positive" : "negative"
-                    }
-                  >
-                    {marketData?.market?.price_change_percentage_24h != null
-                      ? `${marketData.market.price_change_percentage_24h.toFixed(2)}%`
-                      : "--"}
-                  </strong>
-                </div>
-              </div>
-            </section>
-
-            <section className="cards-row">
-              <article className="panel compact-panel">
-                <div className="card-head">
-                  <div>
-                    <p className="section-tag">News</p>
-                    <h3>Что Pegasus видит сейчас</h3>
-                  </div>
-                  <button className="ghost-link" type="button" onClick={() => setTab("news")}>
-                    Все
-                  </button>
-                </div>
-                <div className="news-list">
-                  {featuredNews.map((item, index) => (
-                    <div
-                      className={item.pinned ? "news-item pinned-item" : "news-item"}
-                      key={`${item.link || item.title}-${index}`}
-                    >
-                      <div className="news-copy">
-                        {item.pinned && <span className="pin-badge">Закреплено</span>}
-                        <strong>{item.coin}</strong>
-                        <p>{item.title || item.headline}</p>
-                      </div>
-                      <span className={item.trend === "Медвежий" ? "negative" : "positive"}>{item.trend}</span>
-                    </div>
-                  ))}
-                </div>
-              </article>
-
-              <article className="panel compact-panel">
-                <div className="card-head">
-                  <div>
-                    <p className="section-tag">Why Pegasus</p>
-                    <h3>Почему это выглядит как AI-бизнес</h3>
-                  </div>
-                </div>
-                <div className="stat-grid">
-                  {aiStatus.map((item) => (
-                    <div className="stat-box" key={item.label}>
-                      <span>{item.label}</span>
-                      <strong>{item.value}</strong>
-                    </div>
-                  ))}
-                </div>
-              </article>
-            </section>
-          </section>
-        )}
-
-        {tab === "earnings" && (
-          <section className="single-column">
-            <article className="panel compact-panel">
-              <div className="card-head">
-                <div>
-                  <p className="section-tag">Income</p>
-                  <h3>Как выглядит доход в live-режиме</h3>
-                </div>
-                {demoAmount > 0 && <div className="chart-badge">live</div>}
-              </div>
-              <div className="stat-grid earnings-grid">
-                <div className="stat-box">
-                  <span>Доход</span>
-                  <strong className={demoProfit >= 0 ? "positive" : "negative"}>
-                    {demoAmount > 0 ? formatSignedMoney(demoProfit) : "$0.00"}
-                  </strong>
-                </div>
-                <div className="stat-box">
-                  <span>Процент</span>
-                  <strong className={demoPercent >= 0 ? "positive" : "negative"}>
-                    {demoAmount > 0 ? formatSignedPercent(demoPercent) : "0.00%"}
-                  </strong>
-                </div>
-                <div className="stat-box">
-                  <span>Баланс</span>
-                  <strong>$ {balance.toFixed(2)}</strong>
-                </div>
-              </div>
-            </article>
-
-            <article className="panel compact-panel">
-              <div className="card-head">
-                <div>
-                  <p className="section-tag">Engine</p>
-                  <h3>На чем Pegasus забирает процент</h3>
-                </div>
-              </div>
-              <div className="news-list">
-                {earningsSources.map((source) => (
-                  <div className="news-item signal-item" key={source.name}>
-                    <div>
-                      <strong>{source.name}</strong>
-                      <p>{source.note}</p>
-                    </div>
-                    <div className="signal-side">
-                      <span>доля бота</span>
-                      <strong>{source.share}</strong>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </article>
-          </section>
-        )}
-
-        {tab === "news" && (
-          <section className="single-column">
-            <article className="panel compact-panel">
-              <div className="card-head">
-                <div>
-                  <p className="section-tag">News Feed</p>
-                  <h3>Новости по монетам</h3>
-                </div>
-              </div>
-              <div className="news-list">
-                {newsFeed.map((item, index) => (
-                  <div
-                    className={item.pinned ? "news-item pinned-item" : "news-item"}
-                    key={`${item.link || item.title}-${index}`}
-                  >
-                    <div className="news-copy">
-                      {item.pinned && <span className="pin-badge">Закреплено</span>}
-                      <strong>{item.coin}</strong>
-                      <p>{item.title || item.headline}</p>
-                    </div>
-                    <span className={item.trend === "Медвежий" ? "negative" : "positive"}>
-                      {item.trend}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </article>
-          </section>
-        )}
+        <div className={isTabAnimating ? "tab-stage animating" : "tab-stage"}>
+          {outgoingTab && (
+            <div className={tabDirection > 0 ? "tab-pane tab-pane-overlay tab-exit-left" : "tab-pane tab-pane-overlay tab-exit-right"}>
+              {renderTabContent(outgoingTab)}
+            </div>
+          )}
+          <div className={isTabAnimating ? (tabDirection > 0 ? "tab-pane tab-enter-right" : "tab-pane tab-enter-left") : "tab-pane tab-current"}>
+            {renderTabContent(tab)}
+          </div>
+        </div>
       </main>
 
       <nav className="bottom-nav">
-        <BottomNavButton label="Главная" active={tab === "home"} onClick={() => setTab("home")} />
+        <BottomNavButton label="Главная" active={tab === "home"} onClick={() => handleTabChange("home")} />
         <BottomNavButton
           label="Доход"
           active={tab === "earnings"}
-          onClick={() => setTab("earnings")}
+          onClick={() => handleTabChange("earnings")}
         />
-        <BottomNavButton label="Новости" active={tab === "news"} onClick={() => setTab("news")} />
+        <BottomNavButton label="Новости" active={tab === "news"} onClick={() => handleTabChange("news")} />
       </nav>
 
       {isDepositOpen && (

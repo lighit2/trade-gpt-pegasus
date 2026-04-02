@@ -236,6 +236,43 @@ button {
   gap: 10px;
 }
 
+.main-area {
+  position: relative;
+  overflow: clip;
+}
+
+.tab-stage {
+  position: relative;
+  overflow: clip;
+}
+
+.tab-pane {
+  width: 100%;
+  will-change: transform, opacity, filter;
+}
+
+.tab-pane-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.tab-enter-right {
+  animation: tab-enter-right 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.tab-enter-left {
+  animation: tab-enter-left 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.tab-exit-left {
+  animation: tab-exit-left 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.tab-exit-right {
+  animation: tab-exit-right 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 .hero-panel {
   display: grid;
   grid-template-columns: 190px minmax(0, 1fr);
@@ -808,6 +845,62 @@ button {
   100% {
     transform: scale(1.8);
     opacity: 0;
+  }
+}
+
+@keyframes tab-enter-right {
+  0% {
+    opacity: 0;
+    transform: translate3d(42px, 0, 0) scale(0.985);
+    filter: blur(10px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes tab-enter-left {
+  0% {
+    opacity: 0;
+    transform: translate3d(-42px, 0, 0) scale(0.985);
+    filter: blur(10px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes tab-exit-left {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(-34px, 0, 0) scale(0.985);
+    filter: blur(12px);
+  }
+}
+
+@keyframes tab-exit-right {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(34px, 0, 0) scale(0.985);
+    filter: blur(12px);
   }
 }
 
