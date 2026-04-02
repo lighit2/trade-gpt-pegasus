@@ -198,6 +198,6 @@ app.get("/{*path}", (req, res, next) => {
   return res.sendFile(path.join(distPath, "index.html"));
 });
 
-app.listen(port, () => {
+app.listen(port, "0.0.0.0", () => {
   console.log(`Trade GPT Pegasus bot bridge listening on :${port}`);
 });
