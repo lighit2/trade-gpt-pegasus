@@ -10,6 +10,31 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distPath = path.resolve(__dirname, "../dist");
 
+function decodeCdata(value = "") {
+  return value
+    .replace("<![CDATA[", "")
+    .replace("]]>", "")
+    .replace(/&amp;/g, "&")
+    .trim();
+}
+
+function parseRssItems(xml, limit = 2) {
+  const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].slice(0, limit);
+
+  return items.map((match) => {
+    const block = match[1];
+    const title = decodeCdata(block.match(/<title>([\s\S]*?)<\/title>/)?.[1] || "");
+    const link = decodeCdata(block.match(/<link>([\s\S]*?)<\/link>/)?.[1] || "");
+    const pubDate = decodeCdata(block.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1] || "");
+    const description = decodeCdata(block.match(/<description>([\s\S]*?)<\/description>/)?.[1] || "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    return { title, link, pubDate, description };
+  });
+}
+
 app.use(cors());
 app.use(express.json());
 
@@ -56,6 +81,35 @@ app.get("/api/market/bitcoin", async (_req, res) => {
   } catch (error) {
     return res.status(500).json({
       error: error.message || "Failed to load bitcoin market data"
+    });
+  }
+});
+
+app.get("/api/news/latest", async (_req, res) => {
+  try {
+    const [btcResponse, ethResponse] = await Promise.all([
+      fetch("https://cointelegraph.com/rss/tag/bitcoin"),
+      fetch("https://cointelegraph.com/rss/tag/ethereum")
+    ]);
+
+    if (!btcResponse.ok || !ethResponse.ok) {
+      return res.status(502).json({
+        error: "Failed to fetch latest crypto news"
+      });
+    }
+
+    const [btcXml, ethXml] = await Promise.all([btcResponse.text(), ethResponse.text()]);
+
+    return res.json({
+      ok: true,
+      items: [
+        ...parseRssItems(btcXml, 1).map((item) => ({ ...item, coin: "BTC", trend: "Медвежий" })),
+        ...parseRssItems(ethXml, 1).map((item) => ({ ...item, coin: "ETH", trend: "Медвежий" }))
+      ]
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message || "Failed to load latest crypto news"
     });
   }
 });

@@ -27,28 +27,10 @@ const fallbackCandleSeries = [
   { open: 88, close: 92, high: 97, low: 87 }
 ];
 
-const latestNews = [
-  {
-    coin: "BTC",
-    headline: "ETF-потоки остаются сильными, спрос со стороны крупных игроков сохраняется.",
-    trend: "Бычий"
-  },
-  {
-    coin: "ETH",
-    headline: "Рост сетевой активности усиливает интерес к активу на текущей неделе.",
-    trend: "Бычий"
-  },
-  {
-    coin: "SOL",
-    headline: "После локального импульса рынок перешел в фиксацию и усилил давление продавцов.",
-    trend: "Медвежий"
-  }
-];
-
-const signalCards = [
-  { pair: "BTC / USDT", trend: "Бычий", confidence: "94%", note: "новостной фон сильный" },
-  { pair: "ETH / USDT", trend: "Бычий", confidence: "89%", note: "сеть усиливает импульс" },
-  { pair: "SOL / USDT", trend: "Медвежий", confidence: "86%", note: "идет фиксация прибыли" }
+const earningsSources = [
+  { name: "BTC scalp signals", share: "3.2%", note: "быстрые импульсные входы по волатильности" },
+  { name: "ETH trend trades", share: "4.6%", note: "удержание трендовых движений по новостному фону" },
+  { name: "SOL breakout setups", share: "2.8%", note: "работа на пробой уровня и ускорение объема" }
 ];
 
 function App() {
@@ -60,6 +42,7 @@ function App() {
   const [demoPercent, setDemoPercent] = useState(0);
   const [isDemoRunning, setDemoRunning] = useState(false);
   const [marketData, setMarketData] = useState(null);
+  const [latestNews, setLatestNews] = useState([]);
   const simulationRef = useRef(null);
 
   const balance = demoAmount + demoProfit;
@@ -76,6 +59,17 @@ function App() {
       close: item[4]
     }));
   }, [marketData]);
+  const candleScale = useMemo(() => {
+    const highs = candleSeries.map((item) => item.high);
+    const lows = candleSeries.map((item) => item.low);
+    const min = Math.min(...lows);
+    const max = Math.max(...highs);
+    const range = Math.max(max - min, 1);
+
+    const normalize = (value) => ((value - min) / range) * 100;
+
+    return { normalize };
+  }, [candleSeries]);
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
@@ -140,6 +134,50 @@ function App() {
 
     loadMarketData();
     const timer = window.setInterval(loadMarketData, 30000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadNews = async () => {
+      try {
+        const response = await fetch("/api/news/latest");
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload.error || "Failed to load news");
+        }
+
+        if (!cancelled) {
+          setLatestNews(payload.items || []);
+        }
+      } catch {
+        if (!cancelled) {
+          setLatestNews([
+            {
+              coin: "BTC",
+              title: "Bitcoin holders face $600B in unrealized losses as BTC price slips to $66K",
+              description: "Weak spot demand continues to pressure short-term sentiment.",
+              trend: "Медвежий"
+            },
+            {
+              coin: "ETH",
+              title: "Ether at risk of new 2026 lows if bulls fail to turn $2.4K into support",
+              description: "Ethereum remains fragile unless buyers reclaim key support.",
+              trend: "Медвежий"
+            }
+          ]);
+        }
+      }
+    };
+
+    loadNews();
+    const timer = window.setInterval(loadNews, 300000);
 
     return () => {
       cancelled = true;
@@ -267,15 +305,18 @@ function App() {
                         <div
                           className="candle-wick"
                           style={{
-                            top: `${100 - candle.high}%`,
-                            bottom: `${candle.low}%`
+                            top: `${100 - candleScale.normalize(candle.high)}%`,
+                            bottom: `${candleScale.normalize(candle.low)}%`
                           }}
                         ></div>
                         <div
                           className={bullish ? "candle-body bullish" : "candle-body bearish"}
                           style={{
-                            top: `${100 - bodyTop}%`,
-                            height: `${Math.max(bodyTop - bodyBottom, 4)}%`
+                            top: `${100 - candleScale.normalize(bodyTop)}%`,
+                            height: `${Math.max(
+                              candleScale.normalize(bodyTop) - candleScale.normalize(bodyBottom),
+                              4
+                            )}%`
                           }}
                         ></div>
                       </div>
@@ -320,7 +361,7 @@ function App() {
                     <div className="news-item" key={item.coin}>
                       <div>
                         <strong>{item.coin}</strong>
-                        <p>{item.headline}</p>
+                        <p>{item.title || item.headline}</p>
                       </div>
                       <span className="negative">{item.trend}</span>
                     </div>
@@ -354,27 +395,25 @@ function App() {
           </section>
         )}
 
-        {tab === "analytics" && (
+        {tab === "earnings" && (
           <section className="single-column">
             <article className="panel compact-panel">
               <div className="card-head">
                 <div>
-                  <p className="section-tag">Signal Matrix</p>
-                  <h3>Текущая аналитика</h3>
+                  <p className="section-tag">Bot Earnings</p>
+                  <h3>На чем бот зарабатывает и какой процент берет</h3>
                 </div>
               </div>
               <div className="news-list">
-                {signalCards.map((signal) => (
-                  <div className="news-item signal-item" key={signal.pair}>
+                {earningsSources.map((source) => (
+                  <div className="news-item signal-item" key={source.name}>
                     <div>
-                      <strong>{signal.pair}</strong>
-                      <p>{signal.note}</p>
+                      <strong>{source.name}</strong>
+                      <p>{source.note}</p>
                     </div>
                     <div className="signal-side">
-                      <span className={signal.trend === "Медвежий" ? "negative" : "positive"}>
-                        {signal.trend}
-                      </span>
-                      <strong>{signal.confidence}</strong>
+                      <span className="positive">доход</span>
+                      <strong>{source.share}</strong>
                     </div>
                   </div>
                 ))}
@@ -396,9 +435,9 @@ function App() {
                 {latestNews.map((item) => (
                   <div className="news-item" key={item.coin}>
                     <div>
-                      <strong>{item.coin}</strong>
-                      <p>{item.headline}</p>
-                    </div>
+                        <strong>{item.coin}</strong>
+                        <p>{item.title || item.headline}</p>
+                      </div>
                     <span className={item.trend === "Медвежий" ? "negative" : "negative"}>
                       {item.trend}
                     </span>
@@ -444,15 +483,13 @@ function App() {
       </main>
 
       <nav className="bottom-nav">
-        <BottomNavButton label="Главная" emoji="🏠" active={tab === "home"} onClick={() => setTab("home")} />
+        <BottomNavButton label="Главная" active={tab === "home"} onClick={() => setTab("home")} />
         <BottomNavButton
-          label="Аналитика"
-          emoji="📈"
-          active={tab === "analytics"}
-          onClick={() => setTab("analytics")}
+          label="Доход"
+          active={tab === "earnings"}
+          onClick={() => setTab("earnings")}
         />
-        <BottomNavButton label="Новости" emoji="📰" active={tab === "news"} onClick={() => setTab("news")} />
-        <BottomNavButton label="Баланс" emoji="💼" active={tab === "wallet"} onClick={() => setTab("wallet")} />
+        <BottomNavButton label="Новости" active={tab === "news"} onClick={() => setTab("news")} />
       </nav>
 
       {isDepositOpen && (
@@ -489,12 +526,9 @@ function App() {
   );
 }
 
-function BottomNavButton({ label, emoji, active, onClick }) {
+function BottomNavButton({ label, active, onClick }) {
   return (
     <button className={active ? "bottom-button active" : "bottom-button"} type="button" onClick={onClick}>
-      <span className="bottom-emoji" aria-hidden="true">
-        {emoji}
-      </span>
       {label}
     </button>
   );

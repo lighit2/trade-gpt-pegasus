@@ -416,7 +416,7 @@ button {
   transform: translateX(-50%);
   width: min(calc(100% - 24px), 560px);
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   padding: 8px;
   border-radius: 18px;
@@ -431,7 +431,6 @@ button {
   display: grid;
   justify-items: center;
   align-content: center;
-  gap: 5px;
   font-size: 12px;
   font-weight: 700;
 }
@@ -441,10 +440,6 @@ button {
   color: var(--green);
 }
 
-.bottom-emoji {
-  font-size: 16px;
-  line-height: 1;
-}
 
 .modal-backdrop {
   position: fixed;
