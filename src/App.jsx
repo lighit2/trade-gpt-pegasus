@@ -71,6 +71,24 @@ function App() {
     return { normalize };
   }, [candleSeries]);
 
+  const formatMarketPrice = (value) => {
+    if (!Number.isFinite(value)) {
+      return "--";
+    }
+
+    if (value < 0.01) {
+      return value.toFixed(6);
+    }
+
+    if (value < 1) {
+      return value.toFixed(4);
+    }
+
+    return value.toLocaleString(undefined, {
+      maximumFractionDigits: 2
+    });
+  };
+
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
 
@@ -82,23 +100,10 @@ function App() {
     tg.expand();
     tg.setHeaderColor("#020503");
     tg.setBackgroundColor("#000000");
-    tg.MainButton.setParams({
-      text: "Пополнить баланс",
-      color: "#39ff88",
-      text_color: "#031108",
-      is_active: true,
-      is_visible: true
-    });
-
-    const handleMainButton = () => {
-      setDepositOpen(true);
-      tg.HapticFeedback?.impactOccurred("medium");
-    };
-
-    tg.MainButton.onClick(handleMainButton);
+    tg.MainButton.hide();
 
     return () => {
-      tg.MainButton.offClick(handleMainButton);
+      tg.MainButton.hide();
     };
   }, []);
 
@@ -247,7 +252,14 @@ function App() {
             <span className="brand-sub">market neural core</span>
           </h1>
         </div>
-        <div className="status-chip">{isDemoRunning ? "SIMULATION LIVE" : "AI READY"}</div>
+        <div className="status-chip live-chip">
+          <span className="live-pulse">
+            <span className="live-dot"></span>
+            <span className="live-wave wave-one"></span>
+            <span className="live-wave wave-two"></span>
+          </span>
+          Live
+        </div>
       </header>
 
       <main className="main-area">
@@ -257,18 +269,6 @@ function App() {
               <div className="balance-panel panel">
                 <p className="section-tag">Portfolio Balance</p>
                 <div className="balance-value">$ {balance.toFixed(2)}</div>
-                {demoAmount > 0 && (
-                  <div className="pnl-line">
-                    <span>Доход:</span>
-                    <strong className={demoProfit >= 0 ? "positive" : "negative"}>
-                      {demoProfit >= 0 ? "+" : ""}${demoProfit.toFixed(2)}
-                    </strong>
-                    <strong className={demoPercent >= 0 ? "positive" : "negative"}>
-                      {demoPercent >= 0 ? "+" : ""}
-                      {demoPercent.toFixed(2)}%
-                    </strong>
-                  </div>
-                )}
                 <div className="action-row">
                   <button className="primary-button" type="button" onClick={() => setDepositOpen(true)}>
                     Пополнить
@@ -289,10 +289,20 @@ function App() {
                     <p className="section-tag">Live Candles</p>
                     <h2>LYN / USD</h2>
                   </div>
-                  <div className="chart-badge">
-                    {marketData?.market?.current_price
-                      ? `$${marketData.market.current_price.toFixed(6)}`
-                      : "24h"}
+                  <div className="chart-meta">
+                    <div className="chart-badge">
+                      {marketData?.market?.current_price
+                        ? `$${formatMarketPrice(marketData.market.current_price)}`
+                        : "live"}
+                    </div>
+                    {demoAmount > 0 && (
+                      <div className="profit-badge-mini">
+                        <span>Доход</span>
+                        <strong className={demoProfit >= 0 ? "positive" : "negative"}>
+                          {demoProfit >= 0 ? "+" : ""}${demoProfit.toFixed(2)}
+                        </strong>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -329,10 +339,10 @@ function App() {
                 <div className="chart-footer">
                   <span>
                     {marketData?.market
-                      ? `24h: ${Math.round(marketData.market.low_24h).toLocaleString()} - ${Math.round(
+                      ? `24h: ${formatMarketPrice(marketData.market.low_24h)} - ${formatMarketPrice(
                           marketData.market.high_24h
-                        ).toLocaleString()}`
-                      : "AI bias: strong accumulation"}
+                        )}`
+                      : "24h range"}
                   </span>
                   <strong
                     className={
@@ -400,12 +410,12 @@ function App() {
         {tab === "earnings" && (
           <section className="single-column">
             <article className="panel compact-panel">
-              <div className="card-head">
-                <div>
-                  <p className="section-tag">Bot Earnings</p>
-                  <h3>На чем бот зарабатывает и какой процент с этого получает</h3>
+                <div className="card-head">
+                  <div>
+                    <p className="section-tag">Bot Earnings</p>
+                    <h3>На чем бот зарабатывает</h3>
+                  </div>
                 </div>
-              </div>
               <div className="news-list">
                 {earningsSources.map((source) => (
                   <div className="news-item signal-item" key={source.name}>

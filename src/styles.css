@@ -45,7 +45,8 @@ button {
 
 .app-shell {
   position: relative;
-  width: min(100%, 560px);
+  width: 100%;
+  max-width: 560px;
   margin: 0 auto;
   padding: 16px 12px 92px;
 }
@@ -129,13 +130,8 @@ button {
 }
 
 .brand-lockup::after {
-  content: "AI maps news, reads trend, tracks market momentum for you";
-  display: block;
-  margin-top: 8px;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.4;
-  max-width: 240px;
+  content: "";
+  display: none;
 }
 
 .status-chip,
@@ -153,9 +149,45 @@ button {
   padding: 0 12px;
   display: flex;
   align-items: center;
+  gap: 8px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
+}
+
+.live-chip {
+  min-width: 82px;
+  justify-content: center;
+}
+
+.live-pulse {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--green);
+  box-shadow: 0 0 10px rgba(91, 255, 162, 0.7);
+  animation: heartbeat 1.2s ease-in-out infinite;
+}
+
+.live-wave {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(91, 255, 162, 0.4);
+  border-radius: 999px;
+  animation: ripple 1.8s linear infinite;
+}
+
+.live-wave.wave-two {
+  animation-delay: 0.9s;
 }
 
 .main-area,
@@ -193,19 +225,6 @@ button {
   line-height: 1;
   letter-spacing: -0.04em;
   margin-bottom: 10px;
-}
-
-.balance-panel::after {
-  content: "AI-driven profit simulation with trend and news reaction";
-  display: block;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line-soft);
-  color: var(--green);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  line-height: 1.45;
 }
 
 .pnl-line,
@@ -277,6 +296,33 @@ button {
   font-size: 11px;
   color: var(--green);
   background: rgba(91, 255, 162, 0.08);
+}
+
+.chart-meta {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+}
+
+.profit-badge-mini {
+  min-width: 96px;
+  padding: 7px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line-soft);
+  background: rgba(8, 16, 10, 0.96);
+}
+
+.profit-badge-mini span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.profit-badge-mini strong {
+  display: block;
+  margin-top: 3px;
 }
 
 .chart-panel {
@@ -478,6 +524,37 @@ button {
   outline: none;
 }
 
+@keyframes heartbeat {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  20% {
+    transform: scale(1.2);
+  }
+
+  40% {
+    transform: scale(0.96);
+  }
+
+  60% {
+    transform: scale(1.15);
+  }
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
 @media (max-width: 520px) {
   .hero-panel,
   .cards-row {
@@ -491,7 +568,8 @@ button {
 
   .action-row,
   .news-item,
-  .card-head {
+  .card-head,
+  .chart-head {
     flex-direction: column;
     align-items: stretch;
   }
@@ -502,5 +580,9 @@ button {
 
   .candle-grid {
     height: 170px;
+  }
+
+  .chart-meta {
+    justify-items: stretch;
   }
 }
