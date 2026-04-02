@@ -85,28 +85,60 @@ app.get("/api/market/bitcoin", async (_req, res) => {
   }
 });
 
-app.get("/api/news/latest", async (_req, res) => {
+app.get("/api/market/lyn", async (_req, res) => {
   try {
-    const [btcResponse, ethResponse] = await Promise.all([
-      fetch("https://cointelegraph.com/rss/tag/bitcoin"),
-      fetch("https://cointelegraph.com/rss/tag/ethereum")
+    const [ohlcResponse, marketResponse] = await Promise.all([
+      fetch("https://api.coingecko.com/api/v3/coins/lyn/ohlc?vs_currency=usd&days=1"),
+      fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=lyn&price_change_percentage=24h")
     ]);
 
-    if (!btcResponse.ok || !ethResponse.ok) {
+    if (!ohlcResponse.ok || !marketResponse.ok) {
+      return res.status(502).json({
+        error: "Failed to fetch lyn market data"
+      });
+    }
+
+    const [ohlc, market] = await Promise.all([ohlcResponse.json(), marketResponse.json()]);
+
+    return res.json({
+      ok: true,
+      ohlc,
+      market: market[0] || null
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message || "Failed to load lyn market data"
+    });
+  }
+});
+
+app.get("/api/news/latest", async (_req, res) => {
+  try {
+    const response = await fetch("https://cointelegraph.com/rss");
+
+    if (!response.ok) {
       return res.status(502).json({
         error: "Failed to fetch latest crypto news"
       });
     }
 
-    const [btcXml, ethXml] = await Promise.all([btcResponse.text(), ethResponse.text()]);
+    const xml = await response.text();
+    const items = parseRssItems(xml, 10).map((item) => ({
+      ...item,
+      coin: item.title.includes("Bitcoin")
+        ? "BTC"
+        : item.title.includes("Ether") || item.title.includes("Ethereum")
+          ? "ETH"
+          : item.title.includes("Solana") || item.title.includes("SOL")
+            ? "SOL"
+            : "CRYPTO",
+      trend:
+        /risk|loss|slips|low|fails|scam|pressure|fear/i.test(item.title + item.description)
+          ? "Медвежий"
+          : "Бычий"
+    }));
 
-    return res.json({
-      ok: true,
-      items: [
-        ...parseRssItems(btcXml, 1).map((item) => ({ ...item, coin: "BTC", trend: "Медвежий" })),
-        ...parseRssItems(ethXml, 1).map((item) => ({ ...item, coin: "ETH", trend: "Медвежий" }))
-      ]
-    });
+    return res.json({ ok: true, items });
   } catch (error) {
     return res.status(500).json({
       error: error.message || "Failed to load latest crypto news"

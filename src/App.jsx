@@ -115,7 +115,7 @@ function App() {
 
     const loadMarketData = async () => {
       try {
-        const response = await fetch("/api/market/bitcoin");
+        const response = await fetch("/api/market/lyn");
         const payload = await response.json();
 
         if (!response.ok) {
@@ -133,7 +133,7 @@ function App() {
     };
 
     loadMarketData();
-    const timer = window.setInterval(loadMarketData, 30000);
+    const timer = window.setInterval(loadMarketData, 15000);
 
     return () => {
       cancelled = true;
@@ -257,16 +257,18 @@ function App() {
               <div className="balance-panel panel">
                 <p className="section-tag">Portfolio Balance</p>
                 <div className="balance-value">$ {balance.toFixed(2)}</div>
-                <div className="pnl-line">
-                  <span>Доход:</span>
-                  <strong className={demoProfit >= 0 ? "positive" : "negative"}>
-                    {demoProfit >= 0 ? "+" : ""}${demoProfit.toFixed(2)}
-                  </strong>
-                  <strong className={demoPercent >= 0 ? "positive" : "negative"}>
-                    {demoPercent >= 0 ? "+" : ""}
-                    {demoPercent.toFixed(2)}%
-                  </strong>
-                </div>
+                {demoAmount > 0 && (
+                  <div className="pnl-line">
+                    <span>Доход:</span>
+                    <strong className={demoProfit >= 0 ? "positive" : "negative"}>
+                      {demoProfit >= 0 ? "+" : ""}${demoProfit.toFixed(2)}
+                    </strong>
+                    <strong className={demoPercent >= 0 ? "positive" : "negative"}>
+                      {demoPercent >= 0 ? "+" : ""}
+                      {demoPercent.toFixed(2)}%
+                    </strong>
+                  </div>
+                )}
                 <div className="action-row">
                   <button className="primary-button" type="button" onClick={() => setDepositOpen(true)}>
                     Пополнить
@@ -285,11 +287,11 @@ function App() {
                 <div className="chart-head">
                   <div>
                     <p className="section-tag">Live Candles</p>
-                    <h2>BTC / USDT</h2>
+                    <h2>LYN / USD</h2>
                   </div>
                   <div className="chart-badge">
                     {marketData?.market?.current_price
-                      ? `$${Math.round(marketData.market.current_price).toLocaleString()}`
+                      ? `$${marketData.market.current_price.toFixed(6)}`
                       : "24h"}
                   </div>
                 </div>
@@ -357,13 +359,13 @@ function App() {
                   </button>
                 </div>
                 <div className="news-list">
-                  {featuredNews.map((item) => (
+                    {featuredNews.map((item) => (
                     <div className="news-item" key={item.coin}>
                       <div>
                         <strong>{item.coin}</strong>
                         <p>{item.title || item.headline}</p>
                       </div>
-                      <span className="negative">{item.trend}</span>
+                      <span className={item.trend === "Медвежий" ? "negative" : "positive"}>{item.trend}</span>
                     </div>
                   ))}
                 </div>
@@ -401,7 +403,7 @@ function App() {
               <div className="card-head">
                 <div>
                   <p className="section-tag">Bot Earnings</p>
-                  <h3>На чем бот зарабатывает и какой процент берет</h3>
+                  <h3>На чем бот зарабатывает и какой процент с этого получает</h3>
                 </div>
               </div>
               <div className="news-list">
@@ -438,7 +440,7 @@ function App() {
                         <strong>{item.coin}</strong>
                         <p>{item.title || item.headline}</p>
                       </div>
-                    <span className={item.trend === "Медвежий" ? "negative" : "negative"}>
+                    <span className={item.trend === "Медвежий" ? "negative" : "positive"}>
                       {item.trend}
                     </span>
                   </div>
