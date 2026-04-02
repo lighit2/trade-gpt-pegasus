@@ -9,6 +9,7 @@ const port = Number(process.env.PORT || 3001);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distPath = path.resolve(__dirname, "../dist");
+let lynMarketCache = null;
 
 function decodeCdata(value = "") {
   return value
@@ -93,6 +94,13 @@ app.get("/api/market/lyn", async (_req, res) => {
     ]);
 
     if (!ohlcResponse.ok || !marketResponse.ok) {
+      if (lynMarketCache) {
+        return res.json({
+          ...lynMarketCache,
+          stale: true
+        });
+      }
+
       return res.status(502).json({
         error: "Failed to fetch lyn market data"
       });
@@ -100,12 +108,23 @@ app.get("/api/market/lyn", async (_req, res) => {
 
     const [ohlc, market] = await Promise.all([ohlcResponse.json(), marketResponse.json()]);
 
-    return res.json({
+    lynMarketCache = {
       ok: true,
       ohlc,
-      market: market[0] || null
-    });
+      market: market[0] || null,
+      fetchedAt: Date.now(),
+      stale: false
+    };
+
+    return res.json(lynMarketCache);
   } catch (error) {
+    if (lynMarketCache) {
+      return res.json({
+        ...lynMarketCache,
+        stale: true
+      });
+    }
+
     return res.status(500).json({
       error: error.message || "Failed to load lyn market data"
     });
@@ -199,5 +218,5 @@ app.get("/{*path}", (req, res, next) => {
 });
 
 app.listen(port, "0.0.0.0", () => {
-  console.log(`Trade GPT Pegasus bot bridge listening on :${port}`);
+  console.log(`Pegasus server listening on :${port}`);
 });

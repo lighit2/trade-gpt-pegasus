@@ -1,36 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-const fallbackCandleSeries = [
-  { open: 28, close: 33, high: 37, low: 24 },
-  { open: 33, close: 31, high: 36, low: 29 },
-  { open: 31, close: 36, high: 40, low: 30 },
-  { open: 36, close: 42, high: 46, low: 34 },
-  { open: 42, close: 40, high: 45, low: 38 },
-  { open: 40, close: 47, high: 52, low: 39 },
-  { open: 47, close: 44, high: 49, low: 41 },
-  { open: 44, close: 50, high: 56, low: 43 },
-  { open: 50, close: 55, high: 60, low: 48 },
-  { open: 55, close: 53, high: 58, low: 51 },
-  { open: 53, close: 59, high: 63, low: 52 },
-  { open: 59, close: 62, high: 68, low: 57 },
-  { open: 62, close: 60, high: 64, low: 58 },
-  { open: 60, close: 65, high: 71, low: 59 },
-  { open: 65, close: 69, high: 74, low: 63 },
-  { open: 69, close: 67, high: 72, low: 65 },
-  { open: 67, close: 73, high: 78, low: 66 },
-  { open: 73, close: 77, high: 82, low: 71 },
-  { open: 77, close: 75, high: 80, low: 73 },
-  { open: 75, close: 81, high: 86, low: 74 },
-  { open: 81, close: 79, high: 84, low: 77 },
-  { open: 79, close: 85, high: 90, low: 78 },
-  { open: 85, close: 88, high: 94, low: 83 },
-  { open: 88, close: 92, high: 97, low: 87 }
-];
-
 const earningsSources = [
-  { name: "BTC scalp signals", share: "3.2%", note: "быстрые импульсные входы по волатильности" },
-  { name: "ETH trend trades", share: "4.6%", note: "удержание трендовых движений по новостному фону" },
-  { name: "SOL breakout setups", share: "2.8%", note: "работа на пробой уровня и ускорение объема" }
+  { name: "LYN flow execution", share: "1.8%", note: "бот удерживает импульс и берет свою долю с движения" },
+  { name: "BTC news reaction", share: "2.4%", note: "вход после сильных новостных всплесков и давления" },
+  { name: "ETH volatility range", share: "1.5%", note: "работа от резких колебаний и возвратов в диапазон" }
 ];
 
 function App() {
@@ -49,24 +22,33 @@ function App() {
   const featuredNews = latestNews.slice(0, 2);
   const candleSeries = useMemo(() => {
     if (!marketData?.ohlc?.length) {
-      return fallbackCandleSeries;
+      return [];
     }
 
-    return marketData.ohlc.slice(-24).map((item) => ({
+    return marketData.ohlc.slice(-32).map((item) => ({
       open: item[1],
       high: item[2],
       low: item[3],
       close: item[4]
     }));
   }, [marketData]);
+
   const candleScale = useMemo(() => {
+    if (!candleSeries.length) {
+      return { normalize: () => 50 };
+    }
+
     const highs = candleSeries.map((item) => item.high);
     const lows = candleSeries.map((item) => item.low);
     const min = Math.min(...lows);
     const max = Math.max(...highs);
-    const range = Math.max(max - min, 1);
+    const rawRange = max - min;
+    const padding = rawRange > 0 ? rawRange * 0.16 : Math.max(Math.abs(max || 1) * 0.003, 0.00000001);
+    const visualMin = Math.max(0, min - padding);
+    const visualMax = max + padding;
+    const range = Math.max(visualMax - visualMin, 0.00000001);
 
-    const normalize = (value) => ((value - min) / range) * 100;
+    const normalize = (value) => ((value - visualMin) / range) * 100;
 
     return { normalize };
   }, [candleSeries]);
@@ -131,9 +113,7 @@ function App() {
           setMarketData(payload);
         }
       } catch {
-        if (!cancelled) {
-          setMarketData(null);
-        }
+        return;
       }
     };
 
@@ -239,6 +219,16 @@ function App() {
     }, 5000);
   };
 
+  const formatSignedMoney = (value) => {
+    const absValue = Math.abs(value);
+    return `${value >= 0 ? "+" : "-"}$${absValue.toFixed(2)}`;
+  };
+
+  const formatSignedPercent = (value) => {
+    const absValue = Math.abs(value);
+    return `${value >= 0 ? "+" : "-"}${absValue.toFixed(2)}%`;
+  };
+
   return (
     <div className="app-shell">
       <div className="grid-glow glow-left"></div>
@@ -246,10 +236,9 @@ function App() {
 
       <header className="topbar">
         <div className="brand-lockup">
-          <p className="eyebrow">Neural Crypto Desk</p>
           <h1>
             <span className="brand-main">PEGASUS</span>
-            <span className="brand-sub">market neural core</span>
+            <span className="brand-sub">ai earning engine</span>
           </h1>
         </div>
         <div className="status-chip live-chip">
@@ -267,7 +256,7 @@ function App() {
           <section className="home-layout">
             <section className="hero-panel">
               <div className="balance-panel panel">
-                <p className="section-tag">Portfolio Balance</p>
+                <p className="section-tag">Balance</p>
                 <div className="balance-value">$ {balance.toFixed(2)}</div>
                 <div className="action-row">
                   <button className="primary-button" type="button" onClick={() => setDepositOpen(true)}>
@@ -286,54 +275,61 @@ function App() {
               <div className="chart-panel panel">
                 <div className="chart-head">
                   <div>
-                    <p className="section-tag">Live Candles</p>
+                    <p className="section-tag">LYN Feed</p>
                     <h2>LYN / USD</h2>
                   </div>
                   <div className="chart-meta">
                     <div className="chart-badge">
-                      {marketData?.market?.current_price
+                      {marketData?.market?.current_price != null
                         ? `$${formatMarketPrice(marketData.market.current_price)}`
-                        : "live"}
+                        : "sync"}
                     </div>
                     {demoAmount > 0 && (
                       <div className="profit-badge-mini">
                         <span>Доход</span>
                         <strong className={demoProfit >= 0 ? "positive" : "negative"}>
-                          {demoProfit >= 0 ? "+" : ""}${demoProfit.toFixed(2)}
+                          {formatSignedMoney(demoProfit)}
                         </strong>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="candle-grid">
-                  {candleSeries.map((candle, index) => {
-                    const bullish = candle.close >= candle.open;
-                    const bodyTop = Math.max(candle.open, candle.close);
-                    const bodyBottom = Math.min(candle.open, candle.close);
+                <div
+                  className="candle-grid"
+                  style={{ gridTemplateColumns: `repeat(${Math.max(candleSeries.length, 24)}, minmax(0, 1fr))` }}
+                >
+                  {candleSeries.length > 0 ? (
+                    candleSeries.map((candle, index) => {
+                      const bullish = candle.close >= candle.open;
+                      const bodyTop = Math.max(candle.open, candle.close);
+                      const bodyBottom = Math.min(candle.open, candle.close);
 
-                    return (
-                      <div className="candle-col" key={index}>
-                        <div
-                          className="candle-wick"
-                          style={{
-                            top: `${100 - candleScale.normalize(candle.high)}%`,
-                            bottom: `${candleScale.normalize(candle.low)}%`
-                          }}
-                        ></div>
-                        <div
-                          className={bullish ? "candle-body bullish" : "candle-body bearish"}
-                          style={{
-                            top: `${100 - candleScale.normalize(bodyTop)}%`,
-                            height: `${Math.max(
-                              candleScale.normalize(bodyTop) - candleScale.normalize(bodyBottom),
-                              4
-                            )}%`
-                          }}
-                        ></div>
-                      </div>
-                    );
-                  })}
+                      return (
+                        <div className="candle-col" key={index}>
+                          <div
+                            className="candle-wick"
+                            style={{
+                              top: `${100 - candleScale.normalize(candle.high)}%`,
+                              bottom: `${candleScale.normalize(candle.low)}%`
+                            }}
+                          ></div>
+                          <div
+                            className={bullish ? "candle-body bullish" : "candle-body bearish"}
+                            style={{
+                              top: `${100 - candleScale.normalize(bodyTop)}%`,
+                              height: `${Math.max(
+                                candleScale.normalize(bodyTop) - candleScale.normalize(bodyBottom),
+                                4
+                              )}%`
+                            }}
+                          ></div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="candle-empty">LIVE FEED</div>
+                  )}
                 </div>
 
                 <div className="chart-footer">
@@ -342,16 +338,16 @@ function App() {
                       ? `24h: ${formatMarketPrice(marketData.market.low_24h)} - ${formatMarketPrice(
                           marketData.market.high_24h
                         )}`
-                      : "24h range"}
+                      : "подключение"}
                   </span>
                   <strong
                     className={
-                      (marketData?.market?.price_change_percentage_24h ?? 1) >= 0 ? "positive" : "negative"
+                      (marketData?.market?.price_change_percentage_24h ?? 0) >= 0 ? "positive" : "negative"
                     }
                   >
-                    {marketData?.market?.price_change_percentage_24h
+                    {marketData?.market?.price_change_percentage_24h != null
                       ? `${marketData.market.price_change_percentage_24h.toFixed(2)}%`
-                      : "+ bullish structure"}
+                      : "--"}
                   </strong>
                 </div>
               </div>
@@ -361,7 +357,7 @@ function App() {
               <article className="panel compact-panel">
                 <div className="card-head">
                   <div>
-                    <p className="section-tag">Latest News</p>
+                    <p className="section-tag">News</p>
                     <h3>Последние 2 новости</h3>
                   </div>
                   <button className="ghost-link" type="button" onClick={() => setTab("news")}>
@@ -369,8 +365,8 @@ function App() {
                   </button>
                 </div>
                 <div className="news-list">
-                    {featuredNews.map((item) => (
-                    <div className="news-item" key={item.coin}>
+                  {featuredNews.map((item, index) => (
+                    <div className="news-item" key={`${item.link || item.title}-${index}`}>
                       <div>
                         <strong>{item.coin}</strong>
                         <p>{item.title || item.headline}</p>
@@ -384,7 +380,7 @@ function App() {
               <article className="panel compact-panel">
                 <div className="card-head">
                   <div>
-                    <p className="section-tag">Market Stats</p>
+                    <p className="section-tag">Status</p>
                     <h3>Ключевые метрики</h3>
                   </div>
                 </div>
@@ -410,12 +406,40 @@ function App() {
         {tab === "earnings" && (
           <section className="single-column">
             <article className="panel compact-panel">
-                <div className="card-head">
-                  <div>
-                    <p className="section-tag">Bot Earnings</p>
-                    <h3>На чем бот зарабатывает</h3>
-                  </div>
+              <div className="card-head">
+                <div>
+                  <p className="section-tag">Income</p>
+                  <h3>Текущий доход</h3>
                 </div>
+                {demoAmount > 0 && <div className="chart-badge">live</div>}
+              </div>
+              <div className="stat-grid earnings-grid">
+                <div className="stat-box">
+                  <span>Доход</span>
+                  <strong className={demoProfit >= 0 ? "positive" : "negative"}>
+                    {demoAmount > 0 ? formatSignedMoney(demoProfit) : "$0.00"}
+                  </strong>
+                </div>
+                <div className="stat-box">
+                  <span>Процент</span>
+                  <strong className={demoPercent >= 0 ? "positive" : "negative"}>
+                    {demoAmount > 0 ? formatSignedPercent(demoPercent) : "0.00%"}
+                  </strong>
+                </div>
+                <div className="stat-box">
+                  <span>Баланс</span>
+                  <strong>$ {balance.toFixed(2)}</strong>
+                </div>
+              </div>
+            </article>
+
+            <article className="panel compact-panel">
+              <div className="card-head">
+                <div>
+                  <p className="section-tag">Engine</p>
+                  <h3>На чем бот зарабатывает</h3>
+                </div>
+              </div>
               <div className="news-list">
                 {earningsSources.map((source) => (
                   <div className="news-item signal-item" key={source.name}>
@@ -424,7 +448,7 @@ function App() {
                       <p>{source.note}</p>
                     </div>
                     <div className="signal-side">
-                      <span className="positive">доход</span>
+                      <span>доля бота</span>
                       <strong>{source.share}</strong>
                     </div>
                   </div>
@@ -444,50 +468,17 @@ function App() {
                 </div>
               </div>
               <div className="news-list">
-                {latestNews.map((item) => (
-                  <div className="news-item" key={item.coin}>
+                {latestNews.map((item, index) => (
+                  <div className="news-item" key={`${item.link || item.title}-${index}`}>
                     <div>
-                        <strong>{item.coin}</strong>
-                        <p>{item.title || item.headline}</p>
-                      </div>
+                      <strong>{item.coin}</strong>
+                      <p>{item.title || item.headline}</p>
+                    </div>
                     <span className={item.trend === "Медвежий" ? "negative" : "positive"}>
                       {item.trend}
                     </span>
                   </div>
                 ))}
-              </div>
-            </article>
-          </section>
-        )}
-
-        {tab === "wallet" && (
-          <section className="single-column">
-            <article className="panel compact-panel">
-              <div className="card-head">
-                <div>
-                  <p className="section-tag">Wallet</p>
-                  <h3>Управление балансом</h3>
-                </div>
-              </div>
-              <div className="wallet-grid">
-                <div className="stat-box">
-                  <span>Сумма</span>
-                  <strong>$ {demoAmount.toFixed(2)}</strong>
-                </div>
-                <div className="stat-box">
-                  <span>PnL</span>
-                  <strong className={demoProfit >= 0 ? "positive" : "negative"}>
-                    {demoProfit >= 0 ? "+" : ""}${demoProfit.toFixed(2)}
-                  </strong>
-                </div>
-              </div>
-              <div className="action-row wallet-buttons">
-                <button className="primary-button" type="button" onClick={() => setDepositOpen(true)}>
-                  Пополнить
-                </button>
-                <button className="secondary-button" type="button" onClick={showBetaWithdraw}>
-                  Вывести
-                </button>
               </div>
             </article>
           </section>
@@ -521,7 +512,7 @@ function App() {
               />
             </div>
             <p className="modal-note">
-              После пополнения сумма будет меняться каждые 5 секунд в demo-режиме.
+              После пополнения live-доход будет меняться каждые 5 секунд.
             </p>
             <div className="action-row wallet-buttons">
               <button className="primary-button" type="button" onClick={startDemoSimulation}>
