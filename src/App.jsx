@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-const candleSeries = [
+const fallbackCandleSeries = [
   { open: 28, close: 33, high: 37, low: 24 },
   { open: 33, close: 31, high: 36, low: 29 },
   { open: 31, close: 36, high: 40, low: 30 },
@@ -59,10 +59,23 @@ function App() {
   const [demoProfit, setDemoProfit] = useState(0);
   const [demoPercent, setDemoPercent] = useState(0);
   const [isDemoRunning, setDemoRunning] = useState(false);
+  const [marketData, setMarketData] = useState(null);
   const simulationRef = useRef(null);
 
   const balance = demoAmount + demoProfit;
   const featuredNews = latestNews.slice(0, 2);
+  const candleSeries = useMemo(() => {
+    if (!marketData?.ohlc?.length) {
+      return fallbackCandleSeries;
+    }
+
+    return marketData.ohlc.slice(-24).map((item) => ({
+      open: item[1],
+      high: item[2],
+      low: item[3],
+      close: item[4]
+    }));
+  }, [marketData]);
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
@@ -100,6 +113,37 @@ function App() {
       if (simulationRef.current) {
         window.clearInterval(simulationRef.current);
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadMarketData = async () => {
+      try {
+        const response = await fetch("/api/market/bitcoin");
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload.error || "Failed to load bitcoin data");
+        }
+
+        if (!cancelled) {
+          setMarketData(payload);
+        }
+      } catch {
+        if (!cancelled) {
+          setMarketData(null);
+        }
+      }
+    };
+
+    loadMarketData();
+    const timer = window.setInterval(loadMarketData, 30000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
     };
   }, []);
 
@@ -158,9 +202,12 @@ function App() {
       <div className="grid-glow glow-right"></div>
 
       <header className="topbar">
-        <div>
+        <div className="brand-lockup">
           <p className="eyebrow">Neural Crypto Desk</p>
-          <h1>Pegasus</h1>
+          <h1>
+            <span className="brand-main">PEGASUS</span>
+            <span className="brand-sub">market neural core</span>
+          </h1>
         </div>
         <div className="status-chip">{isDemoRunning ? "SIMULATION LIVE" : "AI READY"}</div>
       </header>
@@ -202,7 +249,11 @@ function App() {
                     <p className="section-tag">Live Candles</p>
                     <h2>BTC / USDT</h2>
                   </div>
-                  <div className="chart-badge">24h</div>
+                  <div className="chart-badge">
+                    {marketData?.market?.current_price
+                      ? `$${Math.round(marketData.market.current_price).toLocaleString()}`
+                      : "24h"}
+                  </div>
                 </div>
 
                 <div className="candle-grid">
@@ -233,8 +284,22 @@ function App() {
                 </div>
 
                 <div className="chart-footer">
-                  <span>AI bias: strong accumulation</span>
-                  <strong className="positive">+ bullish structure</strong>
+                  <span>
+                    {marketData?.market
+                      ? `24h: ${Math.round(marketData.market.low_24h).toLocaleString()} - ${Math.round(
+                          marketData.market.high_24h
+                        ).toLocaleString()}`
+                      : "AI bias: strong accumulation"}
+                  </span>
+                  <strong
+                    className={
+                      (marketData?.market?.price_change_percentage_24h ?? 1) >= 0 ? "positive" : "negative"
+                    }
+                  >
+                    {marketData?.market?.price_change_percentage_24h
+                      ? `${marketData.market.price_change_percentage_24h.toFixed(2)}%`
+                      : "+ bullish structure"}
+                  </strong>
                 </div>
               </div>
             </section>

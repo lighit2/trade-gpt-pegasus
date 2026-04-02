@@ -105,9 +105,26 @@ button {
   font-family: "Space Grotesk", sans-serif;
 }
 
-.topbar h1 {
-  font-size: 32px;
-  letter-spacing: -0.05em;
+.brand-lockup h1 {
+  display: grid;
+  gap: 2px;
+}
+
+.brand-main {
+  display: block;
+  font-size: 34px;
+  letter-spacing: 0.18em;
+  line-height: 0.95;
+  color: #f4fff8;
+  text-shadow: 0 0 24px rgba(57, 255, 136, 0.14);
+}
+
+.brand-sub {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--green);
 }
 
 .status-chip,

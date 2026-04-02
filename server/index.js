@@ -17,6 +17,36 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
 
+app.get("/api/market/bitcoin", async (_req, res) => {
+  try {
+    const [ohlcResponse, marketResponse] = await Promise.all([
+      fetch("https://api.coingecko.com/api/v3/coins/bitcoin/ohlc?vs_currency=usd&days=1"),
+      fetch(
+        "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin&price_change_percentage=24h"
+      )
+    ]);
+
+    if (!ohlcResponse.ok || !marketResponse.ok) {
+      return res.status(502).json({
+        error: "Failed to fetch bitcoin market data"
+      });
+    }
+
+    const ohlc = await ohlcResponse.json();
+    const market = await marketResponse.json();
+
+    return res.json({
+      ok: true,
+      ohlc,
+      market: market[0] || null
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message || "Failed to load bitcoin market data"
+    });
+  }
+});
+
 app.post("/api/bot/test", async (req, res) => {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_TEST_CHAT_ID;
