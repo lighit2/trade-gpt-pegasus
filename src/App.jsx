@@ -17,18 +17,36 @@ const liveSignals = [
   { pair: "SOL / USDT", direction: "BREAKOUT", confidence: "91%", delta: "+5.4%" }
 ];
 
+const newsFeed = [
+  {
+    coin: "BTC",
+    headline: "ETF-потоки держатся выше ожиданий, крупный спрос сохраняется.",
+    trend: "Бычий"
+  },
+  {
+    coin: "ETH",
+    headline: "Рынок ждет усиление сетевой активности, фон умеренно позитивный.",
+    trend: "Бычий"
+  },
+  {
+    coin: "SOL",
+    headline: "После резкого роста усилилась фиксация прибыли и давление продавцов.",
+    trend: "Медвежий"
+  }
+];
+
 const systemCards = [
   {
     title: "Neural Scan",
-    text: "Pegasus фильтрует рынок в реальном времени и режет ложные входы."
+    text: "Pegasus фильтрует рынок в реальном времени и убирает слабые сигналы."
   },
   {
-    title: "Risk Pilot",
-    text: "AI сам предлагает размер позиции, стоп и сценарий фиксации."
+    title: "News Brain",
+    text: "Нейросеть оценивает последние новости по монетам и показывает уклон рынка."
   },
   {
-    title: "Profit Relay",
-    text: "Сделки, метрики и алерты сразу приходят в Telegram без лишних экранов."
+    title: "Auto Pilot",
+    text: "Pegasus сам считает риски, приоритеты и помогает вести сделку почти без рутины."
   }
 ];
 
@@ -46,12 +64,12 @@ function App() {
 
     tg.ready();
     tg.expand();
-    tg.setHeaderColor("#0a0d14");
-    tg.setBackgroundColor("#05070b");
+    tg.setHeaderColor("#041008");
+    tg.setBackgroundColor("#020503");
     tg.MainButton.setParams({
-      text: screen === "home" ? "Open Profit Desk" : "Back To Pegasus",
-      color: "#f3c56d",
-      text_color: "#16110a",
+      text: screen === "home" ? "Open Analytics" : "Back To Pegasus",
+      color: "#5eff98",
+      text_color: "#03110a",
       is_active: true,
       is_visible: true
     });
@@ -79,7 +97,7 @@ function App() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          text: "Trade GPT Pegasus test signal: AI engine online."
+          text: "Pegasus test signal: neural engine online."
         })
       });
 
@@ -99,6 +117,17 @@ function App() {
     }
   };
 
+  const showBetaMessage = () => {
+    const message = "Пополнение баланса пока в бете.";
+
+    if (window.Telegram?.WebApp?.showAlert) {
+      window.Telegram.WebApp.showAlert(message);
+      return;
+    }
+
+    window.alert(message);
+  };
+
   return (
     <div className="app-shell">
       <div className="noise"></div>
@@ -108,7 +137,7 @@ function App() {
       <header className="topbar">
         <div>
           <p className="eyebrow">Telegram Mini App</p>
-          <h1>Trade GPT Pegasus</h1>
+          <h1>Pegasus</h1>
         </div>
         <button className="live-chip" type="button">
           LIVE AI
@@ -128,7 +157,7 @@ function App() {
           type="button"
           onClick={() => setScreen("dashboard")}
         >
-          Profit Desk
+          Analytics
         </button>
       </nav>
 
@@ -137,11 +166,12 @@ function App() {
           <section className="hero-layout">
             <article className="hero-card">
               <div className="hero-copy">
-                <p className="section-tag">Autopilot Earnings</p>
-                <h2>AI Pegasus ищет сделки, пока вы просто проверяете результат.</h2>
+                <p className="section-tag">Neural Market Engine</p>
+                <h2>Pegasus анализирует рынок, оценивает новости и делает рутину за вас.</h2>
                 <p className="hero-text">
-                  Система сканирует импульсы, управляет риском и превращает Mini App
-                  в компактный private trading desk внутри Telegram.
+                  Это нейросеть, которая следит за монетами, смотрит последние новости,
+                  помечает рынок как бычий или медвежий и помогает быстро понять,
+                  где сейчас есть сильный сценарий.
                 </p>
 
                 <div className="hero-actions">
@@ -150,7 +180,10 @@ function App() {
                     type="button"
                     onClick={() => setScreen("dashboard")}
                   >
-                    Открыть дашборд
+                    Открыть аналитику
+                  </button>
+                  <button className="secondary-button" type="button" onClick={showBetaMessage}>
+                    Пополнить баланс
                   </button>
                   <button className="secondary-button" type="button" onClick={triggerBotTest}>
                     Тест бота
@@ -158,9 +191,9 @@ function App() {
                 </div>
 
                 <div className="metric-row">
-                  <MetricCard label="Сегодня" value="+$1,284" note="8 AI-входов" />
-                  <MetricCard label="Accuracy" value="91.7%" note="горячие сетапы" />
-                  <MetricCard label="Auto Mode" value="Active" note="risk pilot online" />
+                  <MetricCard label="Сегодня" value="+$1,284" note="8 AI-сигналов" />
+                  <MetricCard label="Точность" value="91.7%" note="новости + теханализ" />
+                  <MetricCard label="Режим" value="Active" note="нейросеть онлайн" />
                 </div>
               </div>
 
@@ -171,14 +204,14 @@ function App() {
                   <div className="wing wing-left"></div>
                   <div className="wing wing-right"></div>
                   <div className="core-orb"></div>
-                  <div className="profit-badge">+12.8%</div>
+                  <div className="profit-badge">bullish mode</div>
                   <div className="scan-line"></div>
                 </div>
 
                 <div className="signal-ticket">
-                  <span className="ticket-label">Live setup</span>
-                  <strong>BTC / USDT Long</strong>
-                  <p>Impulse confirmed, volume clean, AI confidence 94%.</p>
+                  <span className="ticket-label">Neural outlook</span>
+                  <strong>BTC / USDT bullish bias</strong>
+                  <p>Pegasus видит сильный спрос и позитивный новостной фон.</p>
                 </div>
               </div>
             </article>
@@ -195,12 +228,12 @@ function App() {
 
             <section className="cta-strip">
               <div>
-                <p className="section-tag">Telegram Bot Bridge</p>
-                <h3>Нажмите один раз и проверьте, что бот отвечает через локальный API.</h3>
+                <p className="section-tag">Balance Access</p>
+                <h3>Пополнение баланса уже в интерфейсе, но сама функция пока в бете.</h3>
               </div>
               <div className="cta-actions">
-                <button className="primary-button wide" type="button" onClick={triggerBotTest}>
-                  Отправить тест
+                <button className="primary-button wide" type="button" onClick={showBetaMessage}>
+                  Пополнить баланс
                 </button>
                 <StatusPill status={botStatus} message={botMessage} />
               </div>
@@ -210,8 +243,8 @@ function App() {
           <section className="dashboard-layout">
             <article className="dashboard-hero">
               <div>
-                <p className="section-tag">Profit Desk</p>
-                <h2>Контроль прибыли, сигналов и AI-состояния в одном экране.</h2>
+                <p className="section-tag">Pegasus Analytics</p>
+                <h2>Сигналы, тренды и последние новости по монетам на одном экране.</h2>
               </div>
               <button className="secondary-button" type="button" onClick={() => setScreen("home")}>
                 На главный экран
@@ -257,18 +290,36 @@ function App() {
                 </div>
               </article>
 
+              <article className="glass-panel">
+                <p className="section-tag">Latest News</p>
+                <div className="signal-list">
+                  {newsFeed.map((item) => (
+                    <div className="signal-row" key={item.coin}>
+                      <div>
+                        <strong>{item.coin}</strong>
+                        <p>{item.headline}</p>
+                      </div>
+                      <div className="signal-meta">
+                        <span>Тренд</span>
+                        <strong>{item.trend}</strong>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </article>
+
               <article className="glass-panel full-width">
                 <div className="bot-panel">
                   <div>
-                    <p className="section-tag">Bot API</p>
-                    <h3>Тестовый бот подключается через backend, а не из браузера.</h3>
+                    <p className="section-tag">Pegasus Wallet</p>
+                    <h3>Пополнение баланса будет открыто после завершения beta-режима.</h3>
                     <p className="muted-text">
-                      Это безопаснее: токен лежит в `.env`, а фронт вызывает только локальный
-                      endpoint `/api/bot/test`.
+                      Пока Pegasus показывает аналитику, новости, тренды и тестовые сигналы,
+                      а кнопка пополнения работает как заглушка.
                     </p>
                   </div>
-                  <button className="primary-button" type="button" onClick={triggerBotTest}>
-                    Проверить отправку
+                  <button className="primary-button" type="button" onClick={showBetaMessage}>
+                    Пополнить баланс
                   </button>
                 </div>
                 <StatusPill status={botStatus} message={botMessage} large />
