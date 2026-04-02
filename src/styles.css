@@ -2,16 +2,16 @@
 
 :root {
   --bg: #000000;
-  --panel: #030603;
-  --panel-alt: #060b06;
-  --line: rgba(57, 255, 136, 0.75);
-  --line-soft: rgba(57, 255, 136, 0.18);
-  --text: #effff4;
-  --muted: #8cac96;
-  --green: #39ff88;
-  --green-soft: #91ffc0;
+  --panel: #06110b;
+  --panel-alt: #0b1710;
+  --line: rgba(91, 255, 162, 0.62);
+  --line-soft: rgba(91, 255, 162, 0.18);
+  --text: #f2fff6;
+  --muted: #99bca7;
+  --green: #5bffa2;
+  --green-soft: #b9ffd7;
   --red: #ff5151;
-  --shadow: 0 20px 45px rgba(0, 0, 0, 0.34);
+  --shadow: 0 26px 60px rgba(0, 0, 0, 0.42);
 }
 
 * {
@@ -29,8 +29,9 @@ body {
   color: var(--text);
   font-family: "Manrope", sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(57, 255, 136, 0.08), transparent 28%),
-    linear-gradient(180deg, #010201 0%, #000000 100%);
+    radial-gradient(circle at top left, rgba(91, 255, 162, 0.12), transparent 24%),
+    radial-gradient(circle at top right, rgba(39, 133, 84, 0.16), transparent 20%),
+    linear-gradient(180deg, #040805 0%, #000000 100%);
 }
 
 button,
@@ -62,7 +63,7 @@ button {
   left: -100px;
   width: 220px;
   height: 220px;
-  background: rgba(57, 255, 136, 0.18);
+  background: rgba(91, 255, 162, 0.18);
 }
 
 .glow-right {
@@ -70,7 +71,7 @@ button {
   right: -120px;
   width: 260px;
   height: 260px;
-  background: rgba(57, 255, 136, 0.14);
+  background: rgba(91, 255, 162, 0.14);
 }
 
 .topbar,
@@ -116,7 +117,7 @@ button {
   letter-spacing: 0.18em;
   line-height: 0.95;
   color: #f4fff8;
-  text-shadow: 0 0 24px rgba(57, 255, 136, 0.14);
+  text-shadow: 0 0 28px rgba(91, 255, 162, 0.16);
 }
 
 .brand-sub {
@@ -127,13 +128,23 @@ button {
   color: var(--green);
 }
 
+.brand-lockup::after {
+  content: "AI maps news, reads trend, tracks market momentum for you";
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+  max-width: 240px;
+}
+
 .status-chip,
 .ghost-link,
 .secondary-button,
 .bottom-button,
 .amount-input {
   color: var(--text);
-  background: rgba(4, 8, 4, 0.96);
+  background: rgba(8, 17, 11, 0.96);
   border: 1px solid var(--line);
 }
 
@@ -163,7 +174,9 @@ button {
 
 .panel {
   border: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(4, 9, 4, 0.98), rgba(1, 2, 1, 0.98));
+  background:
+    linear-gradient(180deg, rgba(9, 20, 13, 0.96), rgba(3, 8, 5, 0.98)),
+    radial-gradient(circle at top left, rgba(91, 255, 162, 0.08), transparent 36%);
   border-radius: 18px;
   box-shadow: var(--shadow);
 }
@@ -180,6 +193,19 @@ button {
   line-height: 1;
   letter-spacing: -0.04em;
   margin-bottom: 10px;
+}
+
+.balance-panel::after {
+  content: "AI-driven profit simulation with trend and news reaction";
+  display: block;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--green);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.45;
 }
 
 .pnl-line,
@@ -228,7 +254,9 @@ button {
   color: #031108;
   border: 1px solid rgba(57, 255, 136, 0.9);
   background: linear-gradient(135deg, var(--green-soft), var(--green));
-  box-shadow: 0 10px 24px rgba(57, 255, 136, 0.18);
+  box-shadow:
+    0 10px 24px rgba(91, 255, 162, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
 .secondary-button {
@@ -248,6 +276,7 @@ button {
   align-items: center;
   font-size: 11px;
   color: var(--green);
+  background: rgba(91, 255, 162, 0.08);
 }
 
 .chart-panel {
@@ -265,13 +294,13 @@ button {
   border: 1px solid var(--line-soft);
   border-radius: 14px;
   background:
-    linear-gradient(180deg, rgba(57, 255, 136, 0.02), transparent),
+    linear-gradient(180deg, rgba(91, 255, 162, 0.04), transparent),
     repeating-linear-gradient(
       to right,
       transparent 0,
       transparent calc(100% / 6 - 1px),
-      rgba(57, 255, 136, 0.05) calc(100% / 6 - 1px),
-      rgba(57, 255, 136, 0.05) calc(100% / 6)
+      rgba(91, 255, 162, 0.05) calc(100% / 6 - 1px),
+      rgba(91, 255, 162, 0.05) calc(100% / 6)
     );
 }
 
@@ -298,7 +327,7 @@ button {
 
 .candle-body.bullish {
   background: var(--green);
-  box-shadow: 0 0 12px rgba(57, 255, 136, 0.12);
+  box-shadow: 0 0 12px rgba(91, 255, 162, 0.16);
 }
 
 .candle-body.bearish {
@@ -331,7 +360,7 @@ button {
   padding: 12px;
   border: 1px solid var(--line-soft);
   border-radius: 14px;
-  background: rgba(5, 10, 5, 0.95);
+  background: linear-gradient(180deg, rgba(9, 18, 12, 0.96), rgba(5, 10, 7, 0.96));
 }
 
 .news-item strong {
@@ -359,7 +388,7 @@ button {
   padding: 12px;
   border: 1px solid var(--line-soft);
   border-radius: 14px;
-  background: rgba(5, 10, 5, 0.95);
+  background: linear-gradient(180deg, rgba(9, 18, 12, 0.96), rgba(5, 10, 7, 0.96));
 }
 
 .stat-box span {
@@ -391,8 +420,9 @@ button {
   gap: 8px;
   padding: 8px;
   border-radius: 18px;
-  background: rgba(2, 5, 2, 0.98);
+  background: rgba(4, 10, 6, 0.98);
   border: 1px solid var(--line);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.34);
 }
 
 .bottom-button {
@@ -407,15 +437,13 @@ button {
 }
 
 .bottom-button.active {
-  background: rgba(57, 255, 136, 0.12);
+  background: rgba(91, 255, 162, 0.14);
   color: var(--green);
 }
 
-.bottom-icon {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: currentColor;
+.bottom-emoji {
+  font-size: 16px;
+  line-height: 1;
 }
 
 .modal-backdrop {

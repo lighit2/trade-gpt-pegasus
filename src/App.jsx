@@ -444,10 +444,15 @@ function App() {
       </main>
 
       <nav className="bottom-nav">
-        <BottomNavButton label="Главная" active={tab === "home"} onClick={() => setTab("home")} />
-        <BottomNavButton label="Аналитика" active={tab === "analytics"} onClick={() => setTab("analytics")} />
-        <BottomNavButton label="Новости" active={tab === "news"} onClick={() => setTab("news")} />
-        <BottomNavButton label="Баланс" active={tab === "wallet"} onClick={() => setTab("wallet")} />
+        <BottomNavButton label="Главная" emoji="🏠" active={tab === "home"} onClick={() => setTab("home")} />
+        <BottomNavButton
+          label="Аналитика"
+          emoji="📈"
+          active={tab === "analytics"}
+          onClick={() => setTab("analytics")}
+        />
+        <BottomNavButton label="Новости" emoji="📰" active={tab === "news"} onClick={() => setTab("news")} />
+        <BottomNavButton label="Баланс" emoji="💼" active={tab === "wallet"} onClick={() => setTab("wallet")} />
       </nav>
 
       {isDepositOpen && (
@@ -484,10 +489,12 @@ function App() {
   );
 }
 
-function BottomNavButton({ label, active, onClick }) {
+function BottomNavButton({ label, emoji, active, onClick }) {
   return (
     <button className={active ? "bottom-button active" : "bottom-button"} type="button" onClick={onClick}>
-      <span className="bottom-icon"></span>
+      <span className="bottom-emoji" aria-hidden="true">
+        {emoji}
+      </span>
       {label}
     </button>
   );
