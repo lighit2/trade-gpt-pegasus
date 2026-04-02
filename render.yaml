@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: trade-gpt-pegasus-api
+    runtime: node
+    plan: free
+    rootDir: .
+    buildCommand: npm install && npm run build
+    startCommand: node server/index.js
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_TEST_CHAT_ID
+        sync: false
+      - key: PORT
+        value: 10000
