@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import pegasusMark from "./assets/pegasus-mark.svg";
 
 const LANGUAGE_STORAGE_KEY = "pegas-language";
 const TAB_ORDER = ["home", "earnings", "rewards", "activity", "news"];
@@ -38,7 +39,7 @@ const uiText = {
     languageSwitchLabel: "Переключение языка",
     brand: {
       main: "PEGASUS",
-      sub: "market autopilot"
+      sub: "MARKET AUTOPILOT"
     },
     hero: {
       closeLabel: "Закрыть блок",
@@ -205,7 +206,7 @@ const uiText = {
     languageSwitchLabel: "Language switch",
     brand: {
       main: "PEGASUS",
-      sub: "market autopilot"
+      sub: "MARKET AUTOPILOT"
     },
     hero: {
       closeLabel: "Close banner",
@@ -382,28 +383,6 @@ const isBearishTrend = (trend) => /bear|медвеж/i.test(String(trend || ""))
 
 const localizeTrend = (trend, copy) =>
   isBearishTrend(trend) ? copy.marketStatus.bearish : copy.marketStatus.bullish;
-
-function BrandMark() {
-  return (
-    <svg className="brand-icon" viewBox="0 0 92 68" aria-hidden="true" focusable="false">
-      <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M6 11.5c15.4-4.8 29.8-5.3 43 1.6" strokeWidth="2.6" />
-        <path d="M4 21.8c18.2-4.2 33.1-4 45 1" strokeWidth="2.8" />
-        <path d="M14 33.4c13.8-6.5 25.7-9.5 35.7-9" strokeWidth="2.8" />
-        <path
-          d="M49.2 13.4c8.5 2.7 13.8 7.1 15.8 13.2 1.2 3.6.6 6.9-1.8 9.7-2.4 2.8-5.4 5.5-9.1 8-2.5 1.8-4 3.8-4.6 6-1 4 1.6 6.7 7.8 8.1"
-          strokeWidth="5.8"
-        />
-        <path d="M57.2 57.8c11.2 1.2 20 4.5 26.4 10" strokeWidth="2.8" />
-        <path d="M48.7 14.1c5.7-.8 10.9.1 15.6 2.8" strokeWidth="2.4" strokeOpacity="0.92" />
-        <path d="M54 28.2c4.2-.5 8.1.2 11.6 2.2" strokeWidth="2.4" strokeOpacity="0.84" />
-        <path d="M68 25.2l7.4-4.8 9.2.2 3.7 3-5.2 2.4-8.2-.2" strokeWidth="3" />
-        <path d="M75.6 20.4l3.9-5.7" strokeWidth="2.4" />
-        <circle cx="79.8" cy="22.8" r="1.4" fill="currentColor" stroke="none" />
-      </g>
-    </svg>
-  );
-}
 
 function App() {
   const [tab, setTab] = useState("home");
@@ -1322,7 +1301,7 @@ function App() {
       <header className="topbar">
         <div className="brand-lockup">
           <span className="brand-glyph">
-            <BrandMark />
+            <img className="brand-icon" src={pegasusMark} alt="" />
           </span>
           <div className="brand-text">
             <h1>

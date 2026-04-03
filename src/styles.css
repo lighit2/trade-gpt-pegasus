@@ -146,46 +146,46 @@ button {
 
 .brand-lockup h1 {
   display: grid;
-  gap: 3px;
+  gap: 4px;
 }
 
 .brand-lockup {
   display: flex;
   flex: 1 1 auto;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   min-width: 0;
-  padding: 10px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 18px;
   background:
-    linear-gradient(180deg, rgba(28, 18, 40, 0.72), rgba(6, 10, 12, 0.42)),
-    radial-gradient(circle at top left, rgba(138, 101, 255, 0.16), transparent 48%);
+    linear-gradient(180deg, rgba(24, 15, 36, 0.86), rgba(6, 9, 15, 0.46)),
+    radial-gradient(circle at 18% 20%, rgba(110, 66, 214, 0.18), transparent 36%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 18px 34px rgba(0, 0, 0, 0.24);
-  backdrop-filter: blur(28px) saturate(140%);
-  -webkit-backdrop-filter: blur(28px) saturate(140%);
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 34px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(30px) saturate(145%);
+  -webkit-backdrop-filter: blur(30px) saturate(145%);
 }
 
 .brand-glyph {
   position: relative;
-  width: 60px;
-  height: 42px;
+  width: 64px;
+  height: 40px;
   display: grid;
   place-items: center;
-  border-radius: 15px;
+  border-radius: 16px;
   isolation: isolate;
   color: #ffffff;
   background:
-    linear-gradient(160deg, rgba(4, 3, 8, 0.98), rgba(23, 12, 39, 0.96) 52%, rgba(6, 4, 12, 0.98)),
-    radial-gradient(circle at 24% 20%, rgba(194, 170, 255, 0.22), transparent 42%),
-    radial-gradient(circle at 78% 78%, rgba(117, 66, 235, 0.28), transparent 52%);
-  border: 1px solid rgba(181, 151, 255, 0.18);
+    linear-gradient(180deg, rgba(17, 9, 28, 0.98), rgba(8, 8, 16, 0.96)),
+    radial-gradient(circle at 24% 22%, rgba(158, 124, 255, 0.18), transparent 38%),
+    radial-gradient(circle at 76% 74%, rgba(77, 34, 177, 0.22), transparent 50%);
+  border: 1px solid rgba(166, 136, 255, 0.16);
   box-shadow:
-    0 16px 28px rgba(11, 6, 20, 0.56),
-    0 0 24px rgba(117, 66, 235, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    0 16px 28px rgba(10, 6, 18, 0.5),
+    0 0 20px rgba(96, 51, 198, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
   overflow: hidden;
 }
@@ -201,32 +201,33 @@ button {
 .brand-glyph::before {
   inset: 1px;
   background:
-    radial-gradient(circle at 20% 28%, rgba(255, 255, 255, 0.08), transparent 28%),
-    radial-gradient(circle at 74% 28%, rgba(116, 66, 236, 0.26), transparent 38%),
-    radial-gradient(circle at 58% 78%, rgba(44, 17, 88, 0.42), transparent 44%);
-  opacity: 0.88;
-  animation: brand-aurora 7.2s ease-in-out infinite alternate;
+    radial-gradient(circle at 22% 26%, rgba(255, 255, 255, 0.06), transparent 24%),
+    radial-gradient(circle at 70% 30%, rgba(122, 77, 235, 0.22), transparent 34%),
+    radial-gradient(circle at 52% 76%, rgba(55, 23, 115, 0.34), transparent 42%);
+  opacity: 0.8;
+  animation: brand-aurora 7.8s ease-in-out infinite alternate;
 }
 
 .brand-glyph::after {
   inset: 1px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 46%),
-    radial-gradient(circle at 78% 68%, rgba(131, 80, 255, 0.18), transparent 40%);
-  opacity: 0.72;
-  animation: brand-pulse 5.6s ease-in-out infinite alternate;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 42%),
+    radial-gradient(circle at 82% 68%, rgba(116, 74, 224, 0.16), transparent 38%);
+  opacity: 0.66;
+  animation: brand-pulse 6.4s ease-in-out infinite alternate;
 }
 
 .brand-icon {
   position: relative;
   z-index: 1;
-  width: 50px;
-  height: 32px;
+  width: 56px;
+  height: 30px;
   display: block;
-  color: #ffffff;
+  object-fit: contain;
+  object-position: center;
   filter:
-    drop-shadow(0 4px 12px rgba(255, 255, 255, 0.18))
-    drop-shadow(0 0 10px rgba(181, 151, 255, 0.14));
+    drop-shadow(0 4px 10px rgba(255, 255, 255, 0.14))
+    drop-shadow(0 0 8px rgba(172, 149, 255, 0.1));
 }
 
 .brand-text {
@@ -235,22 +236,42 @@ button {
 
 .brand-main {
   display: block;
-  font-size: 22px;
-  letter-spacing: 0.12em;
-  line-height: 0.95;
-  color: #f7f4ff;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  line-height: 0.92;
+  color: #fbf9ff;
   text-transform: uppercase;
+  white-space: nowrap;
   text-shadow:
-    0 0 22px rgba(138, 101, 255, 0.24),
-    0 0 20px rgba(91, 255, 162, 0.12);
+    0 0 16px rgba(125, 91, 219, 0.16),
+    0 0 10px rgba(255, 255, 255, 0.04);
 }
 
 .brand-sub {
   display: block;
-  font-size: 10px;
-  letter-spacing: 0.16em;
+  width: fit-content;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  line-height: 1;
   text-transform: uppercase;
-  color: var(--violet-soft);
+  white-space: nowrap;
+  background: linear-gradient(
+    90deg,
+    rgba(239, 235, 249, 0.7) 0%,
+    rgba(255, 255, 255, 1) 26%,
+    rgba(206, 192, 255, 1) 50%,
+    rgba(255, 255, 255, 1) 74%,
+    rgba(239, 235, 249, 0.7) 100%
+  );
+  background-size: 220% 100%;
+  background-position: 0% 50%;
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: brand-sub-shimmer 6.2s ease-in-out infinite alternate;
 }
 
 .brand-lockup::after {
@@ -304,25 +325,35 @@ button {
 
 @keyframes brand-aurora {
   0% {
-    transform: translate3d(-2px, -1px, 0) scale(0.98);
-    opacity: 0.7;
+    transform: translate3d(-2px, -1px, 0) scale(0.99);
+    opacity: 0.64;
   }
 
   100% {
-    transform: translate3d(2px, 1px, 0) scale(1.03);
-    opacity: 0.96;
+    transform: translate3d(2px, 1px, 0) scale(1.02);
+    opacity: 0.88;
   }
 }
 
 @keyframes brand-pulse {
   0% {
-    opacity: 0.55;
-    transform: scale(0.96);
+    opacity: 0.42;
+    transform: scale(0.98);
   }
 
   100% {
-    opacity: 0.95;
-    transform: scale(1.08);
+    opacity: 0.72;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes brand-sub-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  100% {
+    background-position: 100% 50%;
   }
 }
 
@@ -1336,6 +1367,30 @@ button {
 }
 
 @media (max-width: 520px) {
+  .brand-lockup {
+    padding: 10px 12px;
+    gap: 12px;
+  }
+
+  .brand-glyph {
+    width: 58px;
+    height: 38px;
+  }
+
+  .brand-icon {
+    width: 50px;
+    height: 27px;
+  }
+
+  .brand-main {
+    font-size: 21px;
+  }
+
+  .brand-sub {
+    font-size: 8px;
+    letter-spacing: 0.26em;
+  }
+
   .hero-panel,
   .cards-row {
     grid-template-columns: 1fr;
