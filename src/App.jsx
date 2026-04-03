@@ -1306,7 +1306,6 @@ function App() {
           <div className="brand-text">
             <h1>
               <span className="brand-main">{copy.brand.main}</span>
-              <span className="brand-sub">{copy.brand.sub}</span>
             </h1>
           </div>
         </div>

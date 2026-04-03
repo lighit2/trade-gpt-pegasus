@@ -144,11 +144,6 @@ button {
   font-family: "Space Grotesk", sans-serif;
 }
 
-.brand-lockup h1 {
-  display: grid;
-  gap: 4px;
-}
-
 .brand-lockup {
   display: flex;
   flex: 1 1 auto;
@@ -248,32 +243,6 @@ button {
     0 0 10px rgba(255, 255, 255, 0.04);
 }
 
-.brand-sub {
-  display: block;
-  width: fit-content;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.3em;
-  line-height: 1;
-  text-transform: uppercase;
-  white-space: nowrap;
-  background: linear-gradient(
-    90deg,
-    rgba(239, 235, 249, 0.7) 0%,
-    rgba(255, 255, 255, 1) 26%,
-    rgba(206, 192, 255, 1) 50%,
-    rgba(255, 255, 255, 1) 74%,
-    rgba(239, 235, 249, 0.7) 100%
-  );
-  background-size: 220% 100%;
-  background-position: 0% 50%;
-  color: transparent;
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: brand-sub-shimmer 6.2s ease-in-out infinite alternate;
-}
-
 .brand-lockup::after {
   content: "";
   display: none;
@@ -344,16 +313,6 @@ button {
   100% {
     opacity: 0.72;
     transform: scale(1.02);
-  }
-}
-
-@keyframes brand-sub-shimmer {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  100% {
-    background-position: 100% 50%;
   }
 }
 
@@ -1384,11 +1343,6 @@ button {
 
   .brand-main {
     font-size: 21px;
-  }
-
-  .brand-sub {
-    font-size: 8px;
-    letter-spacing: 0.26em;
   }
 
   .hero-panel,
