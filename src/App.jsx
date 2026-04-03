@@ -386,28 +386,23 @@ const localizeTrend = (trend, copy) =>
 function BrandMark() {
   return (
     <svg className="brand-icon" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
-      <path
-        d="M17 27.5c4.8-11.7 13.9-19.3 27.2-22.7-4.6 4.1-7.8 8.7-9.5 13.9 5.9-2.7 11.9-3.1 18-.9-6.4 1.7-11.5 4.6-15.5 8.8 5-.1 9.6.9 13.6 3-6.2.6-11.6 2.6-16.1 6-4.6-1.7-8.7-4.6-12.1-8.8-1.4 4.4-4.4 9.1-9.1 14.2 1.7-6.3 2-10.9 1.1-13.5-.3-.9-.8-1.8-1.6-2.7Z"
-        fill="currentColor"
-        opacity="0.98"
-      />
-      <path
-        d="M24.6 54.6c1.4-3.2 1.7-6.1.9-8.8-1-3.6-.2-6.8 2.4-9.6l6.7-7.4 10.2-3.9 4.9-9 5.6 3.1-2.5 7 3 5.7-1.6 8.1-7.1 9.7c-4.8 6.5-12 9.7-21.8 9.8l-2.4-4.7 1.7-.1Z"
-        fill="currentColor"
-      />
-      <path
-        d="M37.2 19.6c4.1-.9 7.6-.1 10.6 2.5"
-        stroke="rgba(255,255,255,0.8)"
-        strokeWidth="2.8"
+      <g
+        transform="translate(64 0) scale(-1 1)"
+        fill="none"
+        stroke="currentColor"
         strokeLinecap="round"
-      />
-      <path
-        d="M41.8 34.2c-3.2 1.1-5.7 3.1-7.4 6"
-        stroke="rgba(255,255,255,0.72)"
-        strokeWidth="2.8"
-        strokeLinecap="round"
-      />
-      <circle cx="45.8" cy="28.8" r="1.8" fill="rgba(12,7,20,0.35)" />
+        strokeLinejoin="round"
+      >
+        <path
+          d="M13.5 18.5c7.5-5.8 16.5-7.9 27-6.2-4.3 1.8-7.6 4.3-9.9 7.6 6.5-.6 12.4 1.1 17.9 5.1-5.7-.4-10.7.3-15 2.1 5.2 2 9 5.4 11.3 10.2-4.2-2.5-8.7-3.7-13.6-3.5-2.2 4.2-5.8 8-10.8 11.3-.8-3.9-.1-7.3 2.1-10.4-4 .2-7.8 1.8-11.5 4.8 1.8-5 5.1-8.8 10-11.2-3-.7-6.1-.5-9.3.4 2.6-3.8 6.1-6.5 10.4-8.1-2.4-1.4-5-2-7.8-1.8 3.7-2.4 7.8-2.8 12.2-1.3"
+          strokeWidth="3.2"
+        />
+        <path d="M40.8 15.4c3 .5 5.8 1.9 8.2 4.2" strokeWidth="3.2" />
+        <path d="M43.3 14.2c-.1 2 .7 3.8 2.3 5.4" strokeWidth="3.2" />
+        <path d="M31.2 27.6c4-.8 7.8-.2 11.2 1.7" strokeWidth="2.8" strokeOpacity="0.84" />
+        <path d="M35.8 36.8c3.6 1.4 6.1 3.9 7.6 7.4" strokeWidth="2.8" strokeOpacity="0.76" />
+        <circle cx="41.7" cy="20.8" r="1.5" fill="currentColor" stroke="none" />
+      </g>
     </svg>
   );
 }

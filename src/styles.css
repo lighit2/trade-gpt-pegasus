@@ -194,26 +194,30 @@ button {
 .brand-glyph::after {
   content: "";
   position: absolute;
-  inset: 0;
+  border-radius: inherit;
   pointer-events: none;
 }
 
 .brand-glyph::before {
-  inset: -35%;
+  inset: 2px;
   background: linear-gradient(
     118deg,
-    transparent 22%,
-    rgba(213, 199, 255, 0.06) 38%,
-    rgba(177, 140, 255, 0.58) 50%,
-    rgba(213, 199, 255, 0.08) 62%,
-    transparent 78%
+    rgba(255, 255, 255, 0) 22%,
+    rgba(223, 211, 255, 0.04) 38%,
+    rgba(193, 162, 255, 0.32) 47%,
+    rgba(255, 255, 255, 0.28) 50%,
+    rgba(193, 162, 255, 0.24) 53%,
+    rgba(223, 211, 255, 0.04) 62%,
+    rgba(255, 255, 255, 0) 78%
   );
-  transform: translate3d(-120%, 0, 0) rotate(16deg);
-  mix-blend-mode: screen;
-  animation: brand-sheen 4.3s ease-in-out infinite;
+  background-size: 240% 100%;
+  background-position: 135% 50%;
+  opacity: 0;
+  animation: brand-sheen 5.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
 .brand-glyph::after {
+  inset: 1px;
   background:
     radial-gradient(circle at 22% 24%, rgba(255, 255, 255, 0.12), transparent 24%),
     radial-gradient(circle at 72% 70%, rgba(131, 80, 255, 0.28), transparent 38%);
@@ -224,8 +228,8 @@ button {
 .brand-icon {
   position: relative;
   z-index: 1;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   display: block;
   color: #ffffff;
   filter:
@@ -307,13 +311,19 @@ button {
 }
 
 @keyframes brand-sheen {
-  0% {
-    transform: translate3d(-120%, 0, 0) rotate(16deg);
+  0%,
+  58% {
+    background-position: 135% 50%;
+    opacity: 0;
   }
 
-  58%,
+  66% {
+    opacity: 0.8;
+  }
+
   100% {
-    transform: translate3d(120%, 0, 0) rotate(16deg);
+    background-position: -40% 50%;
+    opacity: 0;
   }
 }
 
