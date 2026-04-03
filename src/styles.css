@@ -119,6 +119,7 @@ button {
 
 .topbar {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
@@ -150,8 +151,10 @@ button {
 
 .brand-lockup {
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
   gap: 12px;
+  min-width: 0;
   padding: 10px 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
@@ -166,21 +169,26 @@ button {
 }
 
 .brand-glyph {
-  width: 42px;
-  height: 42px;
+  width: 46px;
+  height: 46px;
   display: grid;
   place-items: center;
   border-radius: 14px;
   color: #f5eeff;
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 24px;
-  font-weight: 700;
   background:
     linear-gradient(135deg, rgba(138, 101, 255, 0.9), rgba(91, 255, 162, 0.52)),
     radial-gradient(circle at top left, rgba(255, 255, 255, 0.18), transparent 60%);
   box-shadow:
     0 12px 24px rgba(138, 101, 255, 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.brand-icon {
+  width: 28px;
+  height: 28px;
+  display: block;
 }
 
 .brand-text {
@@ -189,8 +197,8 @@ button {
 
 .brand-main {
   display: block;
-  font-size: 26px;
-  letter-spacing: 0.2em;
+  font-size: 24px;
+  letter-spacing: 0.14em;
   line-height: 0.95;
   color: #f7f4ff;
   text-transform: uppercase;
@@ -202,7 +210,7 @@ button {
 .brand-sub {
   display: block;
   font-size: 10px;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--violet-soft);
 }
@@ -230,6 +238,7 @@ button {
   grid-auto-flow: column;
   gap: 8px;
   padding: 6px;
+  flex-shrink: 0;
   border-radius: 999px;
   background: linear-gradient(180deg, rgba(20, 18, 32, 0.52), rgba(6, 10, 14, 0.24));
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -244,6 +253,15 @@ button {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease;
+}
+
+.language-button:active {
+  transform: scale(0.97);
 }
 
 .language-button.active {
