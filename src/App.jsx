@@ -14,6 +14,23 @@ const aiStatus = [
   { label: "Выход", value: "AUTO" }
 ];
 
+const assetMeta = {
+  lyn: {
+    pair: "LYN / USD",
+    short: "LYN",
+    api: "lyn",
+    swapTo: "bitcoin",
+    swapLabel: "BTC"
+  },
+  bitcoin: {
+    pair: "BTC / USD",
+    short: "BTC",
+    api: "bitcoin",
+    swapTo: "lyn",
+    swapLabel: "LYN"
+  }
+};
+
 const quickActions = [
   { icon: "+", label: "Пополнить", key: "deposit" },
   { icon: "⇄", label: "Обменять", key: "exchange" },
@@ -25,28 +42,49 @@ const rewardPrograms = [
   {
     title: "Депозит 100$",
     reward: "+20$",
+    target: 100,
+    type: "deposit",
     note: "Получишь 20$ в течение 3-х дней после пополнения."
   },
   {
     title: "Общие торги 2000$",
     reward: "+20$",
+    target: 2000,
+    type: "trading",
     note: "Получишь 20$ в течение 3-х дней после достижения объема."
   }
 ];
 
 const defaultActivities = [
   {
+    title: "Пополнено",
+    amount: "+$100.00",
+    asset: "USD",
+    date: "19.01.2026",
+    time: "00:15",
+    note: "Баланс пополнен и AI-сессия запущена."
+  },
+  {
+    title: "Обменено",
+    amount: "-$1.20",
+    asset: "FEE",
+    date: "19.01.2026",
+    time: "00:27",
+    note: "LYN -> BTC, удержана комиссия за обмен."
+  },
+  {
     title: "Отправлено",
-    amount: "-405,00",
-    asset: "Krshki",
+    amount: "-$25.00",
+    asset: "USD",
     date: "19.01.2026",
     time: "00:50",
-    note: "Выставление карточки на платеж."
+    note: "Вывод части прибыли после достижения торгового объема."
   }
 ];
 
-const TAB_ORDER = ["home", "earnings", "rewards", "news"];
+const TAB_ORDER = ["home", "earnings", "rewards", "activity", "news"];
 const TAB_TRANSITION_MS = 420;
+const EXCHANGE_FEE_RATE = 0.006;
 
 const pinnedStory = {
   coin: "PEGASUS x LYN",
@@ -58,11 +96,14 @@ const pinnedStory = {
 
 function App() {
   const [tab, setTab] = useState("home");
+  const [currentAsset, setCurrentAsset] = useState("lyn");
   const [isDepositOpen, setDepositOpen] = useState(false);
   const [depositInput, setDepositInput] = useState("20");
   const [demoAmount, setDemoAmount] = useState(0);
   const [demoProfit, setDemoProfit] = useState(0);
   const [demoPercent, setDemoPercent] = useState(0);
+  const [totalDeposited, setTotalDeposited] = useState(0);
+  const [totalTraded, setTotalTraded] = useState(0);
   const [isDemoRunning, setDemoRunning] = useState(false);
   const [marketData, setMarketData] = useState(null);
   const [latestNews, setLatestNews] = useState([]);
@@ -79,6 +120,11 @@ function App() {
   const balance = demoAmount + demoProfit;
   const newsFeed = useMemo(() => [pinnedStory, ...latestNews], [latestNews]);
   const featuredNews = newsFeed.slice(0, 2);
+  const activityPreview = activityFeed.slice(0, 2);
+  const hasMoreActivities = activityFeed.length > 2;
+  const currentAssetMeta = assetMeta[currentAsset];
+  const depositRewardProgress = Math.min(totalDeposited, rewardPrograms[0].target);
+  const tradingRewardProgress = Math.min(totalTraded, rewardPrograms[1].target);
   const candleSeries = useMemo(() => {
     if (!marketData?.ohlc?.length) {
       return [];
@@ -169,11 +215,11 @@ function App() {
 
     const loadMarketData = async () => {
       try {
-        const response = await fetch("/api/market/lyn");
+        const response = await fetch(`/api/market/${currentAssetMeta.api}`);
         const payload = await response.json();
 
         if (!response.ok) {
-          throw new Error(payload.error || "Failed to load bitcoin data");
+          throw new Error(payload.error || "Failed to load market data");
         }
 
         if (!cancelled) {
@@ -191,7 +237,7 @@ function App() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [currentAssetMeta.api]);
 
   useEffect(() => {
     let cancelled = false;
@@ -260,9 +306,12 @@ function App() {
       window.clearInterval(simulationRef.current);
     }
 
-    setDemoAmount(amount);
-    setDemoProfit(0);
-    setDemoPercent(0);
+    const nextAmount = Number((demoAmount + amount).toFixed(2));
+    const nextPercent = nextAmount > 0 ? Number(((demoProfit / nextAmount) * 100).toFixed(2)) : 0;
+
+    setDemoAmount(nextAmount);
+    setDemoPercent(nextPercent);
+    setTotalDeposited((current) => Number((current + amount).toFixed(2)));
     setDemoRunning(true);
     setDepositOpen(false);
 
@@ -277,16 +326,18 @@ function App() {
     });
 
     let step = 0;
-    let percent = 0;
+    let percent = nextPercent;
 
     simulationRef.current = window.setInterval(() => {
       step += 1;
       const delta = Math.random() * 1.8 - 0.7;
       percent = Math.max(-1.5, Math.min(10, Number((percent + delta).toFixed(2))));
-      const profit = Number(((amount * percent) / 100).toFixed(2));
+      const profit = Number(((nextAmount * percent) / 100).toFixed(2));
+      const tradeDelta = Number((0.1 + Math.random() * 0.1).toFixed(1));
 
       setDemoPercent(percent);
       setDemoProfit(profit);
+      setTotalTraded((current) => Number((current + tradeDelta).toFixed(1)));
 
       if (step >= 24 || percent >= 10) {
         window.clearInterval(simulationRef.current);
@@ -318,7 +369,7 @@ function App() {
   };
 
   const pushActivity = (entry) => {
-    setActivityFeed((current) => [entry, ...current].slice(0, 4));
+    setActivityFeed((current) => [entry, ...current].slice(0, 8));
   };
 
   const dismissHero = () => {
@@ -380,11 +431,82 @@ function App() {
     }
 
     if (actionKey === "exchange") {
-      showBetaAlert("Обмен пока в бете.");
+      const nextAsset = currentAssetMeta.swapTo;
+      const nextMeta = assetMeta[nextAsset];
+      const fee = balance > 0 ? Math.max(0.1, Number((balance * EXCHANGE_FEE_RATE).toFixed(2))) : 0;
+      const stamp = formatActivityStamp();
+
+      setCurrentAsset(nextAsset);
+
+      if (fee > 0) {
+        setDemoProfit((current) => Number((current - fee).toFixed(2)));
+        pushActivity({
+          title: "Обменено",
+          amount: `-$${fee.toFixed(2)}`,
+          asset: "FEE",
+          date: stamp.date,
+          time: stamp.time,
+          note: `${currentAssetMeta.short} -> ${nextMeta.short}, удержана комиссия за обмен.`
+        });
+      } else {
+        pushActivity({
+          title: "Режим рынка",
+          amount: "$0.00",
+          asset: nextMeta.short,
+          date: stamp.date,
+          time: stamp.time,
+          note: `Переключение графика ${currentAssetMeta.short} -> ${nextMeta.short} в режиме просмотра.`
+        });
+      }
+
+      showBetaAlert(`Актив переключен: ${currentAssetMeta.short} -> ${nextMeta.short}${fee > 0 ? `, комиссия $${fee.toFixed(2)}` : ""}.`);
       return;
     }
 
-    showBetaAlert("Отправка пока в бете.");
+    if (actionKey === "send") {
+      if (totalTraded < 500) {
+        showBetaAlert("Отправка откроется после общего торгового объема 500$.");
+        return;
+      }
+
+      if (balance < 25) {
+        showBetaAlert("Недостаточно средств для отправки.");
+        return;
+      }
+
+      const stamp = formatActivityStamp();
+
+      setDemoProfit((current) => Number((current - 25).toFixed(2)));
+      pushActivity({
+        title: "Отправлено",
+        amount: "-$25.00",
+        asset: currentAssetMeta.short,
+        date: stamp.date,
+        time: stamp.time,
+        note: "Перевод из торгового баланса после открытия лимита по объему."
+      });
+      showBetaAlert("Отправка выполнена.");
+    }
+  };
+
+  const openSupport = () => {
+    showBetaAlert("Тех. поддержка подключится в следующем обновлении.");
+  };
+
+  const getActivityIcon = (title) => {
+    if (title === "Пополнено") {
+      return "+";
+    }
+
+    if (title === "Обменено") {
+      return "⇄";
+    }
+
+    if (title === "Отправлено") {
+      return "↑";
+    }
+
+    return "•";
   };
 
   const renderTabContent = (currentTab) => {
@@ -443,85 +565,32 @@ function App() {
               </div>
             </div>
 
-            <div className="chart-panel panel">
-              <div className="chart-head">
+            <article className="panel compact-panel market-overview">
+              <div className="card-head">
                 <div>
-                  <p className="section-tag">LYN Feed</p>
-                  <h2>LYN / USD</h2>
+                  <p className="section-tag">Market Core</p>
+                  <h3>{currentAssetMeta.pair}</h3>
                 </div>
-                <div className="chart-meta">
-                  <div className="chart-badge">
+              </div>
+              <div className="stat-grid market-overview-grid">
+                <div className="stat-box">
+                  <span>Цена</span>
+                  <strong>
                     {marketData?.market?.current_price != null
                       ? `$${formatMarketPrice(marketData.market.current_price)}`
-                      : "sync"}
-                  </div>
-                  {demoAmount > 0 && (
-                    <div className="profit-badge-mini">
-                      <span>Доход</span>
-                      <strong className={demoProfit >= 0 ? "positive" : "negative"}>
-                        {formatSignedMoney(demoProfit)}
-                      </strong>
-                    </div>
-                  )}
+                      : "--"}
+                  </strong>
+                </div>
+                <div className="stat-box">
+                  <span>Общие торги</span>
+                  <strong>${totalTraded.toFixed(1)}</strong>
+                </div>
+                <div className="stat-box">
+                  <span>Комиссия swap</span>
+                  <strong>0.6%</strong>
                 </div>
               </div>
-
-              <div
-                className="candle-grid"
-                style={{ gridTemplateColumns: `repeat(${Math.max(candleSeries.length, 24)}, minmax(0, 1fr))` }}
-              >
-                {candleSeries.length > 0 ? (
-                  candleSeries.map((candle, index) => {
-                    const bullish = candle.close >= candle.open;
-                    const bodyTop = Math.max(candle.open, candle.close);
-                    const bodyBottom = Math.min(candle.open, candle.close);
-
-                    return (
-                      <div className="candle-col" key={index}>
-                        <div
-                          className="candle-wick"
-                          style={{
-                            top: `${100 - candleScale.normalize(candle.high)}%`,
-                            bottom: `${candleScale.normalize(candle.low)}%`
-                          }}
-                        ></div>
-                        <div
-                          className={bullish ? "candle-body bullish" : "candle-body bearish"}
-                          style={{
-                            top: `${100 - candleScale.normalize(bodyTop)}%`,
-                            height: `${Math.max(
-                              candleScale.normalize(bodyTop) - candleScale.normalize(bodyBottom),
-                              4
-                            )}%`
-                          }}
-                        ></div>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="candle-empty">LIVE FEED</div>
-                )}
-              </div>
-
-              <div className="chart-footer">
-                <span>
-                  {marketData?.market
-                    ? `24h: ${formatMarketPrice(marketData.market.low_24h)} - ${formatMarketPrice(
-                        marketData.market.high_24h
-                      )}`
-                    : "подключение"}
-                </span>
-                <strong
-                  className={
-                    (marketData?.market?.price_change_percentage_24h ?? 0) >= 0 ? "positive" : "negative"
-                  }
-                >
-                  {marketData?.market?.price_change_percentage_24h != null
-                    ? `${marketData.market.price_change_percentage_24h.toFixed(2)}%`
-                    : "--"}
-                </strong>
-              </div>
-            </div>
+            </article>
           </section>
 
           <section className="quick-actions-wrap panel compact-panel">
@@ -547,12 +616,17 @@ function App() {
                   <p className="section-tag">Activity</p>
                   <h3>Последние действия</h3>
                 </div>
+                {hasMoreActivities && (
+                  <button className="ghost-link" type="button" onClick={() => handleTabChange("activity")}>
+                    ↓
+                  </button>
+                )}
               </div>
               <div className="activity-list">
-                {activityFeed.map((item, index) => (
+                {activityPreview.map((item, index) => (
                   <article className="activity-card" key={`${item.title}-${item.amount}-${index}`}>
                     <div className="activity-icon-wrap">
-                      <span className="activity-icon">↑</span>
+                      <span className="activity-icon">{getActivityIcon(item.title)}</span>
                     </div>
                     <div className="activity-main">
                       <div className="activity-head">
@@ -575,6 +649,101 @@ function App() {
               </div>
             </article>
           </section>
+
+          <article className="chart-panel panel">
+            <div className="chart-head">
+              <div>
+                <p className="section-tag">{currentAssetMeta.short} Feed</p>
+                <h2>{currentAssetMeta.pair}</h2>
+              </div>
+              <div className="chart-meta">
+                <div className="chart-badge">
+                  {marketData?.market?.current_price != null
+                    ? `$${formatMarketPrice(marketData.market.current_price)}`
+                    : "sync"}
+                </div>
+                {demoAmount > 0 && (
+                  <div className="profit-badge-mini">
+                    <span>Доход</span>
+                    <strong className={demoProfit >= 0 ? "positive" : "negative"}>
+                      {formatSignedMoney(demoProfit)}
+                    </strong>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div
+              className="candle-grid"
+              style={{ gridTemplateColumns: `repeat(${Math.max(candleSeries.length, 24)}, minmax(0, 1fr))` }}
+            >
+              {candleSeries.length > 0 ? (
+                candleSeries.map((candle, index) => {
+                  const bullish = candle.close >= candle.open;
+                  const bodyTop = Math.max(candle.open, candle.close);
+                  const bodyBottom = Math.min(candle.open, candle.close);
+
+                  return (
+                    <div className="candle-col" key={index}>
+                      <div
+                        className="candle-wick"
+                        style={{
+                          top: `${100 - candleScale.normalize(candle.high)}%`,
+                          bottom: `${candleScale.normalize(candle.low)}%`
+                        }}
+                      ></div>
+                      <div
+                        className={bullish ? "candle-body bullish" : "candle-body bearish"}
+                        style={{
+                          top: `${100 - candleScale.normalize(bodyTop)}%`,
+                          height: `${Math.max(
+                            candleScale.normalize(bodyTop) - candleScale.normalize(bodyBottom),
+                            4
+                          )}%`
+                        }}
+                      ></div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="candle-empty">LIVE FEED</div>
+              )}
+            </div>
+
+            <div className="chart-footer">
+              <span>
+                {marketData?.market
+                  ? `24h: ${formatMarketPrice(marketData.market.low_24h)} - ${formatMarketPrice(
+                      marketData.market.high_24h
+                    )}`
+                  : "подключение"}
+              </span>
+              <strong
+                className={
+                  (marketData?.market?.price_change_percentage_24h ?? 0) >= 0 ? "positive" : "negative"
+                }
+              >
+                {marketData?.market?.price_change_percentage_24h != null
+                  ? `${marketData.market.price_change_percentage_24h.toFixed(2)}%`
+                  : "--"}
+              </strong>
+            </div>
+          </article>
+
+          <article className="panel compact-panel support-panel">
+            <div className="card-head">
+              <div>
+                <p className="section-tag">Support</p>
+                <h3>Тех. Поддержка</h3>
+              </div>
+            </div>
+            <p className="support-copy">
+              Если нужна помощь по депозиту, обмену или наградам, поддержка подключит тебя вручную.
+            </p>
+            <button className="ghost-link support-link" type="button" onClick={openSupport}>
+              Открыть поддержку
+            </button>
+          </article>
 
           <section className="cards-row">
             <article className="panel compact-panel">
@@ -689,7 +858,7 @@ function App() {
             <div className="card-head">
               <div>
                 <p className="section-tag">Rewards</p>
-                <h3>Вознаграждение</h3>
+                <h3>Награды</h3>
               </div>
             </div>
             <div className="reward-grid">
@@ -699,10 +868,89 @@ function App() {
                     <strong>{program.title}</strong>
                     <span className="reward-pill">{program.reward}</span>
                   </div>
+                  <div className="reward-progress">
+                    <div className="reward-progress-head">
+                      <span>
+                        {program.type === "deposit"
+                          ? `${depositRewardProgress.toFixed(0)}/${program.target}`
+                          : `${tradingRewardProgress.toFixed(1)}/${program.target}$`}
+                      </span>
+                      <strong
+                        className={
+                          (program.type === "deposit"
+                            ? depositRewardProgress >= program.target
+                            : tradingRewardProgress >= program.target)
+                            ? "positive"
+                            : ""
+                        }
+                      >
+                        {(program.type === "deposit"
+                          ? depositRewardProgress >= program.target
+                          : tradingRewardProgress >= program.target)
+                          ? "выполнено"
+                          : "в процессе"}
+                      </strong>
+                    </div>
+                    <div className="reward-progress-track">
+                      <div
+                        className="reward-progress-bar"
+                        style={{
+                          width: `${
+                            program.type === "deposit"
+                              ? Math.min((depositRewardProgress / program.target) * 100, 100)
+                              : Math.min((tradingRewardProgress / program.target) * 100, 100)
+                          }%`
+                        }}
+                      ></div>
+                    </div>
+                  </div>
                   <p>{program.note}</p>
                   <button className="ghost-link reward-link" type="button" onClick={() => setDepositOpen(true)}>
                     Активировать
                   </button>
+                </article>
+              ))}
+            </div>
+          </article>
+        </section>
+      );
+    }
+
+    if (currentTab === "activity") {
+      return (
+        <section className="single-column">
+          <article className="panel compact-panel">
+            <div className="card-head">
+              <div>
+                <p className="section-tag">Activity Feed</p>
+                <h3>Последние действия</h3>
+              </div>
+              <button className="ghost-link" type="button" onClick={() => handleTabChange("home")}>
+                Назад
+              </button>
+            </div>
+            <div className="activity-list">
+              {activityFeed.map((item, index) => (
+                <article className="activity-card" key={`${item.title}-${item.amount}-${index}`}>
+                  <div className="activity-icon-wrap">
+                    <span className="activity-icon">{getActivityIcon(item.title)}</span>
+                  </div>
+                  <div className="activity-main">
+                    <div className="activity-head">
+                      <div>
+                        <strong>{item.title}</strong>
+                        <div className="activity-stamp">
+                          <span>{item.date}</span>
+                          <span>{item.time}</span>
+                        </div>
+                      </div>
+                      <div className="activity-side">
+                        <strong className="activity-amount">{item.amount}</strong>
+                        <span className="activity-asset">{item.asset}</span>
+                      </div>
+                    </div>
+                    <p className="activity-note">{item.note}</p>
+                  </div>
                 </article>
               ))}
             </div>
@@ -783,7 +1031,7 @@ function App() {
           onClick={() => handleTabChange("earnings")}
         />
         <BottomNavButton
-          label="Вознаграждение"
+          label="Награды"
           active={tab === "rewards"}
           onClick={() => handleTabChange("rewards")}
         />
