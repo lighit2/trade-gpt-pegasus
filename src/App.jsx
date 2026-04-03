@@ -18,24 +18,68 @@ const assetMeta = {
   lyn: {
     pair: "LYN / USD",
     short: "LYN",
-    api: "lyn",
-    swapTo: "bitcoin",
-    swapLabel: "BTC"
+    api: "lyn"
   },
   bitcoin: {
     pair: "BTC / USD",
     short: "BTC",
-    api: "bitcoin",
-    swapTo: "lyn",
-    swapLabel: "LYN"
+    api: "bitcoin"
+  },
+  ethereum: {
+    pair: "ETH / USD",
+    short: "ETH",
+    api: "ethereum"
+  }
+};
+
+const uiText = {
+  ru: {
+    quickActions: {
+      deposit: "Пополнить",
+      exchange: "Обменять",
+      reward: "Получить",
+      send: "Отправить"
+    },
+    nav: {
+      home: "Главная",
+      earnings: "Доход",
+      rewards: "Награды",
+      news: "Новости"
+    },
+    modal: {
+      depositTitle: "Пополнить баланс",
+      amountTitle: "Введите сумму в долларах",
+      cancel: "Отмена",
+      submit: "Пополнить баланс"
+    }
+  },
+  en: {
+    quickActions: {
+      deposit: "Deposit",
+      exchange: "Swap",
+      reward: "Rewards",
+      send: "Send"
+    },
+    nav: {
+      home: "Home",
+      earnings: "Income",
+      rewards: "Rewards",
+      news: "News"
+    },
+    modal: {
+      depositTitle: "Top up balance",
+      amountTitle: "Enter amount in USD",
+      cancel: "Cancel",
+      submit: "Top up balance"
+    }
   }
 };
 
 const quickActions = [
-  { icon: "+", label: "Пополнить", key: "deposit" },
-  { icon: "⇄", label: "Обменять", key: "exchange" },
-  { icon: "↓", label: "Получить", key: "reward" },
-  { icon: "↑", label: "Отправить", key: "send" }
+  { icon: "+", key: "deposit" },
+  { icon: "⇄", key: "exchange" },
+  { icon: "↓", key: "reward" },
+  { icon: "↑", key: "send" }
 ];
 
 const rewardPrograms = [
@@ -55,32 +99,7 @@ const rewardPrograms = [
   }
 ];
 
-const defaultActivities = [
-  {
-    title: "Пополнено",
-    amount: "+$100.00",
-    asset: "USD",
-    date: "19.01.2026",
-    time: "00:15",
-    note: "Баланс пополнен и AI-сессия запущена."
-  },
-  {
-    title: "Обменено",
-    amount: "-$1.20",
-    asset: "FEE",
-    date: "19.01.2026",
-    time: "00:27",
-    note: "LYN -> BTC, удержана комиссия за обмен."
-  },
-  {
-    title: "Отправлено",
-    amount: "-$25.00",
-    asset: "USD",
-    date: "19.01.2026",
-    time: "00:50",
-    note: "Вывод части прибыли после достижения торгового объема."
-  }
-];
+const defaultActivities = [];
 
 const TAB_ORDER = ["home", "earnings", "rewards", "activity", "news"];
 const TAB_TRANSITION_MS = 420;
@@ -96,8 +115,10 @@ const pinnedStory = {
 
 function App() {
   const [tab, setTab] = useState("home");
+  const [language, setLanguage] = useState("ru");
   const [currentAsset, setCurrentAsset] = useState("lyn");
   const [isDepositOpen, setDepositOpen] = useState(false);
+  const [isExchangeOpen, setExchangeOpen] = useState(false);
   const [depositInput, setDepositInput] = useState("20");
   const [demoAmount, setDemoAmount] = useState(0);
   const [demoProfit, setDemoProfit] = useState(0);
@@ -123,6 +144,7 @@ function App() {
   const activityPreview = activityFeed.slice(0, 2);
   const hasMoreActivities = activityFeed.length > 2;
   const currentAssetMeta = assetMeta[currentAsset];
+  const copy = uiText[language];
   const depositRewardProgress = Math.min(totalDeposited, rewardPrograms[0].target);
   const tradingRewardProgress = Math.min(totalTraded, rewardPrograms[1].target);
   const candleSeries = useMemo(() => {
@@ -431,39 +453,16 @@ function App() {
     }
 
     if (actionKey === "exchange") {
-      const nextAsset = currentAssetMeta.swapTo;
-      const nextMeta = assetMeta[nextAsset];
-      const fee = balance > 0 ? Math.max(0.1, Number((balance * EXCHANGE_FEE_RATE).toFixed(2))) : 0;
-      const stamp = formatActivityStamp();
-
-      setCurrentAsset(nextAsset);
-
-      if (fee > 0) {
-        setDemoProfit((current) => Number((current - fee).toFixed(2)));
-        pushActivity({
-          title: "Обменено",
-          amount: `-$${fee.toFixed(2)}`,
-          asset: "FEE",
-          date: stamp.date,
-          time: stamp.time,
-          note: `${currentAssetMeta.short} -> ${nextMeta.short}, удержана комиссия за обмен.`
-        });
-      } else {
-        pushActivity({
-          title: "Режим рынка",
-          amount: "$0.00",
-          asset: nextMeta.short,
-          date: stamp.date,
-          time: stamp.time,
-          note: `Переключение графика ${currentAssetMeta.short} -> ${nextMeta.short} в режиме просмотра.`
-        });
-      }
-
-      showBetaAlert(`Актив переключен: ${currentAssetMeta.short} -> ${nextMeta.short}${fee > 0 ? `, комиссия $${fee.toFixed(2)}` : ""}.`);
+      setExchangeOpen(true);
       return;
     }
 
     if (actionKey === "send") {
+      if (totalDeposited <= 0) {
+        showBetaAlert("Сначала нужно пополнить баланс.");
+        return;
+      }
+
       if (totalTraded < 500) {
         showBetaAlert("Отправка откроется после общего торгового объема 500$.");
         return;
@@ -487,6 +486,50 @@ function App() {
       });
       showBetaAlert("Отправка выполнена.");
     }
+  };
+
+  const selectExchangeAsset = (nextAsset) => {
+    const nextMeta = assetMeta[nextAsset];
+    const stamp = formatActivityStamp();
+
+    setExchangeOpen(false);
+
+    if (!nextMeta) {
+      return;
+    }
+
+    if (nextAsset === currentAsset) {
+      showBetaAlert(`Сейчас уже выбран ${currentAssetMeta.short}.`);
+      return;
+    }
+
+    const fee = totalDeposited > 0 && balance > 0 ? Math.max(0.1, Number((balance * EXCHANGE_FEE_RATE).toFixed(2))) : 0;
+
+    setMarketData(null);
+    setCurrentAsset(nextAsset);
+
+    if (fee > 0) {
+      setDemoProfit((current) => Number((current - fee).toFixed(2)));
+      pushActivity({
+        title: "Обменено",
+        amount: `-$${fee.toFixed(2)}`,
+        asset: "FEE",
+        date: stamp.date,
+        time: stamp.time,
+        note: `${currentAssetMeta.short} -> ${nextMeta.short}, удержана комиссия за обмен.`
+      });
+    } else {
+      pushActivity({
+        title: "Режим рынка",
+        amount: "$0.00",
+        asset: nextMeta.short,
+        date: stamp.date,
+        time: stamp.time,
+        note: `График переключен с ${currentAssetMeta.short} на ${nextMeta.short}.`
+      });
+    }
+
+    showBetaAlert(`Актив переключен: ${currentAssetMeta.short} -> ${nextMeta.short}${fee > 0 ? `, комиссия $${fee.toFixed(2)}` : ""}.`);
   };
 
   const openSupport = () => {
@@ -603,7 +646,7 @@ function App() {
                   onClick={() => handleQuickAction(item.key)}
                 >
                   <span className="quick-action-icon">{item.icon}</span>
-                  <span className="quick-action-label">{item.label}</span>
+                  <span className="quick-action-label">{copy.quickActions[item.key]}</span>
                 </button>
               ))}
             </div>
@@ -623,29 +666,33 @@ function App() {
                 )}
               </div>
               <div className="activity-list">
-                {activityPreview.map((item, index) => (
-                  <article className="activity-card" key={`${item.title}-${item.amount}-${index}`}>
-                    <div className="activity-icon-wrap">
-                      <span className="activity-icon">{getActivityIcon(item.title)}</span>
-                    </div>
-                    <div className="activity-main">
-                      <div className="activity-head">
-                        <div>
-                          <strong>{item.title}</strong>
-                          <div className="activity-stamp">
-                            <span>{item.date}</span>
-                            <span>{item.time}</span>
+                {activityPreview.length > 0 ? (
+                  activityPreview.map((item, index) => (
+                    <article className="activity-card" key={`${item.title}-${item.amount}-${index}`}>
+                      <div className="activity-icon-wrap">
+                        <span className="activity-icon">{getActivityIcon(item.title)}</span>
+                      </div>
+                      <div className="activity-main">
+                        <div className="activity-head">
+                          <div>
+                            <strong>{item.title}</strong>
+                            <div className="activity-stamp">
+                              <span>{item.date}</span>
+                              <span>{item.time}</span>
+                            </div>
+                          </div>
+                          <div className="activity-side">
+                            <strong className="activity-amount">{item.amount}</strong>
+                            <span className="activity-asset">{item.asset}</span>
                           </div>
                         </div>
-                        <div className="activity-side">
-                          <strong className="activity-amount">{item.amount}</strong>
-                          <span className="activity-asset">{item.asset}</span>
-                        </div>
+                        <p className="activity-note">{item.note}</p>
                       </div>
-                      <p className="activity-note">{item.note}</p>
-                    </div>
-                  </article>
-                ))}
+                    </article>
+                  ))
+                ) : (
+                  <div className="activity-empty">Пока нет действий. После пополнения или обмена история появится здесь.</div>
+                )}
               </div>
             </article>
           </section>
@@ -930,29 +977,33 @@ function App() {
               </button>
             </div>
             <div className="activity-list">
-              {activityFeed.map((item, index) => (
-                <article className="activity-card" key={`${item.title}-${item.amount}-${index}`}>
-                  <div className="activity-icon-wrap">
-                    <span className="activity-icon">{getActivityIcon(item.title)}</span>
-                  </div>
-                  <div className="activity-main">
-                    <div className="activity-head">
-                      <div>
-                        <strong>{item.title}</strong>
-                        <div className="activity-stamp">
-                          <span>{item.date}</span>
-                          <span>{item.time}</span>
+              {activityFeed.length > 0 ? (
+                activityFeed.map((item, index) => (
+                  <article className="activity-card" key={`${item.title}-${item.amount}-${index}`}>
+                    <div className="activity-icon-wrap">
+                      <span className="activity-icon">{getActivityIcon(item.title)}</span>
+                    </div>
+                    <div className="activity-main">
+                      <div className="activity-head">
+                        <div>
+                          <strong>{item.title}</strong>
+                          <div className="activity-stamp">
+                            <span>{item.date}</span>
+                            <span>{item.time}</span>
+                          </div>
+                        </div>
+                        <div className="activity-side">
+                          <strong className="activity-amount">{item.amount}</strong>
+                          <span className="activity-asset">{item.asset}</span>
                         </div>
                       </div>
-                      <div className="activity-side">
-                        <strong className="activity-amount">{item.amount}</strong>
-                        <span className="activity-asset">{item.asset}</span>
-                      </div>
+                      <p className="activity-note">{item.note}</p>
                     </div>
-                    <p className="activity-note">{item.note}</p>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                ))
+              ) : (
+                <div className="activity-empty">Пока нет действий. После пополнения или обмена история появится здесь.</div>
+              )}
             </div>
           </article>
         </section>
@@ -995,18 +1046,29 @@ function App() {
 
       <header className="topbar">
         <div className="brand-lockup">
-          <h1>
-            <span className="brand-main">PEGASUS</span>
-            <span className="brand-sub">ai earning engine</span>
-          </h1>
+          <span className="brand-glyph">P</span>
+          <div className="brand-text">
+            <h1>
+              <span className="brand-main">PEGASUS</span>
+              <span className="brand-sub">adaptive ai market desk</span>
+            </h1>
+          </div>
         </div>
-        <div className="status-chip live-chip">
-          <span className="live-pulse">
-            <span className="live-dot"></span>
-            <span className="live-wave wave-one"></span>
-            <span className="live-wave wave-two"></span>
-          </span>
-          Live
+        <div className="language-switch" role="group" aria-label="Language switch">
+          <button
+            className={language === "ru" ? "language-button active" : "language-button"}
+            type="button"
+            onClick={() => setLanguage("ru")}
+          >
+            RU
+          </button>
+          <button
+            className={language === "en" ? "language-button active" : "language-button"}
+            type="button"
+            onClick={() => setLanguage("en")}
+          >
+            EN
+          </button>
         </div>
       </header>
 
@@ -1024,25 +1086,25 @@ function App() {
       </main>
 
       <nav className="bottom-nav">
-        <BottomNavButton label="Главная" active={tab === "home"} onClick={() => handleTabChange("home")} />
+        <BottomNavButton label={copy.nav.home} active={tab === "home"} onClick={() => handleTabChange("home")} />
         <BottomNavButton
-          label="Доход"
+          label={copy.nav.earnings}
           active={tab === "earnings"}
           onClick={() => handleTabChange("earnings")}
         />
         <BottomNavButton
-          label="Награды"
+          label={copy.nav.rewards}
           active={tab === "rewards"}
           onClick={() => handleTabChange("rewards")}
         />
-        <BottomNavButton label="Новости" active={tab === "news"} onClick={() => handleTabChange("news")} />
+        <BottomNavButton label={copy.nav.news} active={tab === "news"} onClick={() => handleTabChange("news")} />
       </nav>
 
       {isDepositOpen && (
         <div className="modal-backdrop" onClick={() => setDepositOpen(false)} role="presentation">
           <div className="deposit-modal panel" onClick={(event) => event.stopPropagation()} role="dialog">
-            <p className="section-tag">Пополнить баланс</p>
-            <h3>Введите сумму в долларах</h3>
+            <p className="section-tag">{copy.modal.depositTitle}</p>
+            <h3>{copy.modal.amountTitle}</h3>
             <div className="amount-wrap">
               <span className="amount-prefix">$</span>
               <input
@@ -1054,15 +1116,39 @@ function App() {
                 onChange={(event) => setDepositInput(event.target.value)}
               />
             </div>
-            <p className="modal-note">
-              После пополнения live-доход будет меняться каждые 5 секунд.
-            </p>
             <div className="action-row wallet-buttons">
               <button className="primary-button" type="button" onClick={startDemoSimulation}>
-                Пополнить баланс
+                {copy.modal.submit}
               </button>
               <button className="secondary-button" type="button" onClick={() => setDepositOpen(false)}>
-                Отмена
+                {copy.modal.cancel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isExchangeOpen && (
+        <div className="modal-backdrop" onClick={() => setExchangeOpen(false)} role="presentation">
+          <div className="deposit-modal panel" onClick={(event) => event.stopPropagation()} role="dialog">
+            <p className="section-tag">Exchange</p>
+            <h3>Выбери актив для графика и обмена</h3>
+            <div className="exchange-grid">
+              {Object.entries(assetMeta).map(([key, asset]) => (
+                <button
+                  className={key === currentAsset ? "exchange-option active" : "exchange-option"}
+                  type="button"
+                  key={key}
+                  onClick={() => selectExchangeAsset(key)}
+                >
+                  <strong>{asset.short}</strong>
+                  <span>{asset.pair}</span>
+                </button>
+              ))}
+            </div>
+            <div className="action-row wallet-buttons">
+              <button className="secondary-button" type="button" onClick={() => setExchangeOpen(false)}>
+                Закрыть
               </button>
             </div>
           </div>

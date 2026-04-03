@@ -11,6 +11,31 @@ const __dirname = path.dirname(__filename);
 const distPath = path.resolve(__dirname, "../dist");
 let lynMarketCache = null;
 
+async function fetchBinanceMarket(symbol) {
+  const [ohlcResponse, marketResponse] = await Promise.all([
+    fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1h&limit=24`),
+    fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`)
+  ]);
+
+  if (!ohlcResponse.ok || !marketResponse.ok) {
+    throw new Error(`Failed to fetch ${symbol} market data`);
+  }
+
+  const ohlcRaw = await ohlcResponse.json();
+  const marketRaw = await marketResponse.json();
+
+  return {
+    ok: true,
+    ohlc: ohlcRaw.map((item) => [item[0], Number(item[1]), Number(item[2]), Number(item[3]), Number(item[4])]),
+    market: {
+      current_price: Number(marketRaw.lastPrice),
+      low_24h: Number(marketRaw.lowPrice),
+      high_24h: Number(marketRaw.highPrice),
+      price_change_percentage_24h: Number(marketRaw.priceChangePercent)
+    }
+  };
+}
+
 function decodeCdata(value = "") {
   return value
     .replace("<![CDATA[", "")
@@ -45,43 +70,20 @@ app.get("/api/health", (_req, res) => {
 
 app.get("/api/market/bitcoin", async (_req, res) => {
   try {
-    const [ohlcResponse, marketResponse] = await Promise.all([
-      fetch("https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=24"),
-      fetch("https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT")
-    ]);
-
-    if (!ohlcResponse.ok || !marketResponse.ok) {
-      return res.status(502).json({
-        error: "Failed to fetch bitcoin market data"
-      });
-    }
-
-    const ohlcRaw = await ohlcResponse.json();
-    const marketRaw = await marketResponse.json();
-
-    const ohlc = ohlcRaw.map((item) => [
-      item[0],
-      Number(item[1]),
-      Number(item[2]),
-      Number(item[3]),
-      Number(item[4])
-    ]);
-
-    const market = {
-      current_price: Number(marketRaw.lastPrice),
-      low_24h: Number(marketRaw.lowPrice),
-      high_24h: Number(marketRaw.highPrice),
-      price_change_percentage_24h: Number(marketRaw.priceChangePercent)
-    };
-
-    return res.json({
-      ok: true,
-      ohlc,
-      market
-    });
+    return res.json(await fetchBinanceMarket("BTCUSDT"));
   } catch (error) {
     return res.status(500).json({
       error: error.message || "Failed to load bitcoin market data"
+    });
+  }
+});
+
+app.get("/api/market/ethereum", async (_req, res) => {
+  try {
+    return res.json(await fetchBinanceMarket("ETHUSDT"));
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message || "Failed to load ethereum market data"
     });
   }
 });
