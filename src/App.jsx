@@ -5,6 +5,9 @@ const LANGUAGE_STORAGE_KEY = "pegas-language";
 const TAB_ORDER = ["home", "earnings", "rewards", "activity", "news"];
 const TAB_TRANSITION_MS = 420;
 const EXCHANGE_FEE_RATE = 0.006;
+const MIN_DEPOSIT_AMOUNT = 20;
+const HERO_DISMISS_MS = 420;
+const HOME_ACTION_DELAY_MS = 220;
 
 const assetMeta = {
   lyn: {
@@ -77,7 +80,7 @@ const uiText = {
       balanceRunningNote: "PEGASUS уже ведет позицию и пересчитывает доход в live-режиме.",
       balanceClosedNote: "Сессия закрыта. Можно снова пополнить баланс и запустить AI.",
       balanceIdleNote: "Внеси баланс, чтобы запустить AI-режим и передать работу алгоритму.",
-      depositButton: "Пополнить",
+      depositButton: "Пополнить баланс",
       withdrawButton: "Вывести",
       marketModeLabel: "Режим",
       marketModeValue: "AI-автопилот",
@@ -104,7 +107,8 @@ const uiText = {
       newsAll: "Все",
       pinnedLabel: "Закреплено",
       whyTag: "Почему PEGASUS",
-      whyTitle: "Почему это выглядит как AI-бизнес"
+      whyTitle: "Почему это выглядит как AI-бизнес",
+      legal: "(C) Pegasus GPT - Все права защищены 2025-2026."
     },
     earnings: {
       tag: "Доход",
@@ -160,11 +164,39 @@ const uiText = {
         note: "Получишь 20$ в течение 3-х дней после пополнения."
       },
       {
+        title: "Депозит 250$",
+        reward: "+55$",
+        target: 250,
+        type: "deposit",
+        note: "Повышенный бонус для второго депозита и ускоренный старт торгового AI."
+      },
+      {
+        title: "Депозит 500$",
+        reward: "+120$",
+        target: 500,
+        type: "deposit",
+        note: "Открывает усиленный режим ведения позиции и повышенный бонус."
+      },
+      {
         title: "Общие торги 2000$",
         reward: "+20$",
         target: 2000,
         type: "trading",
         note: "Получишь 20$ в течение 3-х дней после достижения объема."
+      },
+      {
+        title: "Общие торги 5000$",
+        reward: "+65$",
+        target: 5000,
+        type: "trading",
+        note: "После достижения объема откроется повышенная награда за активность."
+      },
+      {
+        title: "Общие торги 12000$",
+        reward: "+180$",
+        target: 12000,
+        type: "trading",
+        note: "Флагманская награда для активного баланса и длинной AI-сессии."
       }
     ],
     pinnedStory: {
@@ -182,6 +214,7 @@ const uiText = {
       withdrawBeta: "Вывод пока в бете.",
       supportBeta: "Тех. поддержка подключится в следующем обновлении.",
       amountInvalid: "Введите сумму в долларах.",
+      amountMinimum: (min) => `Минимальная сумма пополнения - $${min}.`,
       sendNeedDeposit: "Сначала нужно пополнить баланс.",
       sendNeedVolume: "Отправка откроется после общего торгового объема 500$.",
       sendNeedBalance: "Недостаточно средств для отправки.",
@@ -244,7 +277,7 @@ const uiText = {
       balanceRunningNote: "PEGASUS is already managing the position and recalculating profit live.",
       balanceClosedNote: "Session closed. You can fund again and launch AI.",
       balanceIdleNote: "Add funds to start AI mode and hand execution over to the engine.",
-      depositButton: "Deposit",
+      depositButton: "Fund balance",
       withdrawButton: "Withdraw",
       marketModeLabel: "Mode",
       marketModeValue: "AI autopilot",
@@ -271,7 +304,8 @@ const uiText = {
       newsAll: "All",
       pinnedLabel: "Pinned",
       whyTag: "Why PEGASUS",
-      whyTitle: "Why this feels like an AI operation"
+      whyTitle: "Why this feels like an AI operation",
+      legal: "(C) Pegasus GPT - All rights reserved 2025-2026."
     },
     earnings: {
       tag: "Income",
@@ -327,11 +361,39 @@ const uiText = {
         note: "You will receive $20 within 3 days after funding."
       },
       {
+        title: "Deposit $250",
+        reward: "+$55",
+        target: 250,
+        type: "deposit",
+        note: "Higher bonus for the second funding tier and a stronger AI start."
+      },
+      {
+        title: "Deposit $500",
+        reward: "+$120",
+        target: 500,
+        type: "deposit",
+        note: "Unlocks a stronger position-management mode and a larger bonus."
+      },
+      {
         title: "Total trading $2000",
         reward: "+$20",
         target: 2000,
         type: "trading",
         note: "You will receive $20 within 3 days after reaching the volume."
+      },
+      {
+        title: "Total trading $5000",
+        reward: "+$65",
+        target: 5000,
+        type: "trading",
+        note: "After this volume, a higher activity reward becomes available."
+      },
+      {
+        title: "Total trading $12000",
+        reward: "+$180",
+        target: 12000,
+        type: "trading",
+        note: "Flagship reward for a highly active balance and long AI sessions."
       }
     ],
     pinnedStory: {
@@ -349,6 +411,7 @@ const uiText = {
       withdrawBeta: "Withdrawals are still in beta.",
       supportBeta: "Support will connect in the next update.",
       amountInvalid: "Enter an amount in USD.",
+      amountMinimum: (min) => `Minimum funding amount is $${min}.`,
       sendNeedDeposit: "You need to fund the balance first.",
       sendNeedVolume: "Send unlocks after total trading volume reaches $500.",
       sendNeedBalance: "Not enough funds to send.",
@@ -405,9 +468,11 @@ function App() {
   const [outgoingTab, setOutgoingTab] = useState(null);
   const [isTabAnimating, setTabAnimating] = useState(false);
   const [tabDirection, setTabDirection] = useState(1);
+  const [pendingHomeAction, setPendingHomeAction] = useState(null);
   const simulationRef = useRef(null);
   const heroDismissRef = useRef(null);
   const tabTransitionRef = useRef(null);
+  const actionDelayRef = useRef(null);
 
   const copy = uiText[language];
   const currentAssetMeta = assetMeta[currentAsset];
@@ -417,8 +482,6 @@ function App() {
   const activityPreview = activityFeed.slice(0, 2);
   const hasMoreActivities = activityFeed.length > 2;
   const rewardPrograms = copy.rewardPrograms;
-  const depositRewardProgress = Math.min(totalDeposited, rewardPrograms[0].target);
-  const tradingRewardProgress = Math.min(totalTraded, rewardPrograms[1].target);
   const candleSeries = useMemo(() => {
     if (!marketData?.ohlc?.length) {
       return [];
@@ -612,6 +675,10 @@ function App() {
       if (tabTransitionRef.current) {
         window.clearTimeout(tabTransitionRef.current);
       }
+
+      if (actionDelayRef.current) {
+        window.clearTimeout(actionDelayRef.current);
+      }
     };
   }, []);
 
@@ -701,6 +768,19 @@ function App() {
     showBetaAlert(copy.alerts.withdrawBeta);
   };
 
+  const runHomeAction = (actionId, callback) => {
+    if (pendingHomeAction) {
+      return;
+    }
+
+    setPendingHomeAction(actionId);
+    actionDelayRef.current = window.setTimeout(() => {
+      actionDelayRef.current = null;
+      setPendingHomeAction(null);
+      callback();
+    }, HOME_ACTION_DELAY_MS);
+  };
+
   const pushActivity = (entry) => {
     setActivityFeed((current) => [entry, ...current].slice(0, 8));
   };
@@ -710,6 +790,11 @@ function App() {
 
     if (!Number.isFinite(amount) || amount <= 0) {
       showBetaAlert(copy.alerts.amountInvalid);
+      return;
+    }
+
+    if (amount < MIN_DEPOSIT_AMOUNT) {
+      showBetaAlert(copy.alerts.amountMinimum(MIN_DEPOSIT_AMOUNT));
       return;
     }
 
@@ -765,7 +850,7 @@ function App() {
       setHeroVisible(false);
       setHeroClosing(false);
       heroDismissRef.current = null;
-    }, 280);
+    }, HERO_DISMISS_MS);
   };
 
   const handleTabChange = (nextTab) => {
@@ -883,28 +968,40 @@ function App() {
     showBetaAlert(copy.alerts.supportBeta);
   };
 
+  const getRewardProgress = (program) =>
+    program.type === "deposit" ? Math.min(totalDeposited, program.target) : Math.min(totalTraded, program.target);
+
+  const isRewardComplete = (program, progress) => progress >= program.target;
+
+  const formatRewardProgress = (program, progress) => {
+    const digits = program.type === "deposit" ? 0 : 1;
+    return `$${progress.toFixed(digits)} / $${program.target}`;
+  };
+
   const renderTabContent = (currentTab) => {
     if (currentTab === "home") {
       return (
         <section className="home-layout">
           {isHeroVisible && (
-            <article className={isHeroClosing ? "panel hero-banner closing" : "panel hero-banner"}>
-              <button className="hero-close" type="button" onClick={dismissHero} aria-label={copy.hero.closeLabel}>
-                x
-              </button>
-              <div className="hero-copy">
-                <p className="section-tag">{copy.hero.tag}</p>
-                <h2>{copy.hero.title}</h2>
-                <p>{copy.hero.description}</p>
-              </div>
-              <div className="hero-tags">
-                {copy.hero.tags.map((tag) => (
-                  <span className="hero-tag" key={tag}>
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </article>
+            <div className={isHeroClosing ? "hero-banner-shell closing" : "hero-banner-shell"}>
+              <article className="panel hero-banner">
+                <button className="hero-close" type="button" onClick={dismissHero} aria-label={copy.hero.closeLabel}>
+                  x
+                </button>
+                <div className="hero-copy">
+                  <p className="section-tag">{copy.hero.tag}</p>
+                  <h2>{copy.hero.title}</h2>
+                  <p>{copy.hero.description}</p>
+                </div>
+                <div className="hero-tags">
+                  {copy.hero.tags.map((tag) => (
+                    <span className="hero-tag" key={tag}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </article>
+            </div>
           )}
 
           <section className="hero-panel">
@@ -919,10 +1016,24 @@ function App() {
                   : copy.home.balanceIdleNote}
               </p>
               <div className="action-row">
-                <button className="primary-button" type="button" onClick={() => setDepositOpen(true)}>
+                <button
+                  className="primary-button shimmer-button button-loading"
+                  type="button"
+                  data-busy={pendingHomeAction === "home-deposit" ? "true" : undefined}
+                  aria-busy={pendingHomeAction === "home-deposit"}
+                  disabled={Boolean(pendingHomeAction)}
+                  onClick={() => runHomeAction("home-deposit", () => setDepositOpen(true))}
+                >
                   {copy.home.depositButton}
                 </button>
-                <button className="secondary-button" type="button" onClick={showBetaWithdraw}>
+                <button
+                  className="secondary-button button-loading"
+                  type="button"
+                  data-busy={pendingHomeAction === "home-withdraw" ? "true" : undefined}
+                  aria-busy={pendingHomeAction === "home-withdraw"}
+                  disabled={Boolean(pendingHomeAction)}
+                  onClick={() => runHomeAction("home-withdraw", showBetaWithdraw)}
+                >
                   {copy.home.withdrawButton}
                 </button>
               </div>
@@ -968,10 +1079,13 @@ function App() {
             <div className="quick-actions">
               {quickActions.map((item) => (
                 <button
-                  className="quick-action"
+                  className="quick-action button-loading"
                   type="button"
                   key={item.key}
-                  onClick={() => handleQuickAction(item.key)}
+                  data-busy={pendingHomeAction === `quick-${item.key}` ? "true" : undefined}
+                  aria-busy={pendingHomeAction === `quick-${item.key}`}
+                  disabled={Boolean(pendingHomeAction)}
+                  onClick={() => runHomeAction(`quick-${item.key}`, () => handleQuickAction(item.key))}
                 >
                   <span className="quick-action-icon">{item.icon}</span>
                   <span className="quick-action-label">{copy.quickActions[item.key]}</span>
@@ -988,7 +1102,14 @@ function App() {
                   <h3>{copy.home.activityTitle}</h3>
                 </div>
                 {hasMoreActivities && (
-                  <button className="ghost-link" type="button" onClick={() => handleTabChange("activity")}>
+                  <button
+                    className="ghost-link button-loading"
+                    type="button"
+                    data-busy={pendingHomeAction === "activity-open" ? "true" : undefined}
+                    aria-busy={pendingHomeAction === "activity-open"}
+                    disabled={Boolean(pendingHomeAction)}
+                    onClick={() => runHomeAction("activity-open", () => handleTabChange("activity"))}
+                  >
                     ↓
                   </button>
                 )}
@@ -1091,7 +1212,14 @@ function App() {
               </div>
             </div>
             <p className="support-copy">{copy.home.supportCopy}</p>
-            <button className="ghost-link support-link" type="button" onClick={openSupport}>
+            <button
+              className="ghost-link support-link button-loading"
+              type="button"
+              data-busy={pendingHomeAction === "support-open" ? "true" : undefined}
+              aria-busy={pendingHomeAction === "support-open"}
+              disabled={Boolean(pendingHomeAction)}
+              onClick={() => runHomeAction("support-open", openSupport)}
+            >
               {copy.home.supportLink}
             </button>
           </article>
@@ -1103,7 +1231,14 @@ function App() {
                   <p className="section-tag">{copy.home.newsTag}</p>
                   <h3>{copy.home.newsTitle}</h3>
                 </div>
-                <button className="ghost-link" type="button" onClick={() => handleTabChange("news")}>
+                <button
+                  className="ghost-link button-loading"
+                  type="button"
+                  data-busy={pendingHomeAction === "news-open" ? "true" : undefined}
+                  aria-busy={pendingHomeAction === "news-open"}
+                  disabled={Boolean(pendingHomeAction)}
+                  onClick={() => runHomeAction("news-open", () => handleTabChange("news"))}
+                >
                   {copy.home.newsAll}
                 </button>
               </div>
@@ -1127,6 +1262,8 @@ function App() {
               </div>
             </article>
           </section>
+
+          <footer className="legal-footer">{copy.home.legal}</footer>
         </section>
       );
     }
@@ -1201,50 +1338,39 @@ function App() {
             <div className="reward-grid">
               {rewardPrograms.map((program) => (
                 <article className="reward-card" key={program.title}>
-                  <div className="reward-head">
-                    <strong>{program.title}</strong>
-                    <span className="reward-pill">{program.reward}</span>
-                  </div>
-                  <div className="reward-progress">
-                    <div className="reward-progress-head">
-                      <span>
-                        {program.type === "deposit"
-                          ? `${depositRewardProgress.toFixed(0)}/${program.target}`
-                          : `${tradingRewardProgress.toFixed(1)}/${program.target}$`}
-                      </span>
-                      <strong
-                        className={
-                          (program.type === "deposit"
-                            ? depositRewardProgress >= program.target
-                            : tradingRewardProgress >= program.target)
-                            ? "positive"
-                            : ""
-                        }
-                      >
-                        {(program.type === "deposit"
-                          ? depositRewardProgress >= program.target
-                          : tradingRewardProgress >= program.target)
-                          ? copy.rewards.statusDone
-                          : copy.rewards.statusProgress}
-                      </strong>
-                    </div>
-                    <div className="reward-progress-track">
-                      <div
-                        className="reward-progress-bar"
-                        style={{
-                          width: `${
-                            program.type === "deposit"
-                              ? Math.min((depositRewardProgress / program.target) * 100, 100)
-                              : Math.min((tradingRewardProgress / program.target) * 100, 100)
-                          }%`
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-                  <p>{program.note}</p>
-                  <button className="ghost-link reward-link" type="button" onClick={() => setDepositOpen(true)}>
-                    {copy.rewards.activate}
-                  </button>
+                  {(() => {
+                    const progress = getRewardProgress(program);
+                    const completed = isRewardComplete(program, progress);
+
+                    return (
+                      <>
+                        <div className="reward-head">
+                          <strong>{program.title}</strong>
+                          <span className="reward-pill">{program.reward}</span>
+                        </div>
+                        <div className="reward-progress">
+                          <div className="reward-progress-head">
+                            <span>{formatRewardProgress(program, progress)}</span>
+                            <strong className={completed ? "positive" : ""}>
+                              {completed ? copy.rewards.statusDone : copy.rewards.statusProgress}
+                            </strong>
+                          </div>
+                          <div className="reward-progress-track">
+                            <div
+                              className="reward-progress-bar"
+                              style={{
+                                width: `${Math.min((progress / program.target) * 100, 100)}%`
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+                        <p>{program.note}</p>
+                        <button className="ghost-link reward-link" type="button" onClick={() => setDepositOpen(true)}>
+                          {copy.rewards.activate}
+                        </button>
+                      </>
+                    );
+                  })()}
                 </article>
               ))}
             </div>
@@ -1376,14 +1502,14 @@ function App() {
               <input
                 className="amount-input"
                 type="number"
-                min="1"
+                min={MIN_DEPOSIT_AMOUNT}
                 step="1"
                 value={depositInput}
                 onChange={(event) => setDepositInput(event.target.value)}
               />
             </div>
             <div className="action-row wallet-buttons">
-              <button className="primary-button" type="button" onClick={startDemoSimulation}>
+              <button className="primary-button shimmer-button" type="button" onClick={startDemoSimulation}>
                 {copy.modal.submit}
               </button>
               <button className="secondary-button" type="button" onClick={() => setDepositOpen(false)}>
