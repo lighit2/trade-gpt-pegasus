@@ -14,7 +14,38 @@ const aiStatus = [
   { label: "Выход", value: "AUTO" }
 ];
 
-const TAB_ORDER = ["home", "earnings", "news"];
+const quickActions = [
+  { icon: "+", label: "Пополнить", key: "deposit" },
+  { icon: "⇄", label: "Обменять", key: "exchange" },
+  { icon: "↓", label: "Получить", key: "reward" },
+  { icon: "↑", label: "Отправить", key: "send" }
+];
+
+const rewardPrograms = [
+  {
+    title: "Депозит 100$",
+    reward: "+20$",
+    note: "Получишь 20$ в течение 3-х дней после пополнения."
+  },
+  {
+    title: "Общие торги 2000$",
+    reward: "+20$",
+    note: "Получишь 20$ в течение 3-х дней после достижения объема."
+  }
+];
+
+const defaultActivities = [
+  {
+    title: "Отправлено",
+    amount: "-405,00",
+    asset: "Krshki",
+    date: "19.01.2026",
+    time: "00:50",
+    note: "Выставление карточки на платеж."
+  }
+];
+
+const TAB_ORDER = ["home", "earnings", "rewards", "news"];
 const TAB_TRANSITION_MS = 420;
 
 const pinnedStory = {
@@ -35,6 +66,7 @@ function App() {
   const [isDemoRunning, setDemoRunning] = useState(false);
   const [marketData, setMarketData] = useState(null);
   const [latestNews, setLatestNews] = useState([]);
+  const [activityFeed, setActivityFeed] = useState(defaultActivities);
   const [isHeroVisible, setHeroVisible] = useState(true);
   const [isHeroClosing, setHeroClosing] = useState(false);
   const [outgoingTab, setOutgoingTab] = useState(null);
@@ -234,6 +266,16 @@ function App() {
     setDemoRunning(true);
     setDepositOpen(false);
 
+    const stamp = formatActivityStamp();
+    pushActivity({
+      title: "Пополнено",
+      amount: `+$${amount.toFixed(2)}`,
+      asset: "USD",
+      date: stamp.date,
+      time: stamp.time,
+      note: "Баланс пополнен. AI-сессия запущена."
+    });
+
     let step = 0;
     let percent = 0;
 
@@ -262,6 +304,21 @@ function App() {
   const formatSignedPercent = (value) => {
     const absValue = Math.abs(value);
     return `${value >= 0 ? "+" : "-"}${absValue.toFixed(2)}%`;
+  };
+
+  const formatActivityStamp = () => {
+    const now = new Date();
+    const date = now.toLocaleDateString("ru-RU");
+    const time = now.toLocaleTimeString("ru-RU", {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+
+    return { date, time };
+  };
+
+  const pushActivity = (entry) => {
+    setActivityFeed((current) => [entry, ...current].slice(0, 4));
   };
 
   const dismissHero = () => {
@@ -300,6 +357,34 @@ function App() {
       setTabAnimating(false);
       tabTransitionRef.current = null;
     }, TAB_TRANSITION_MS);
+  };
+
+  const showBetaAlert = (message) => {
+    if (window.Telegram?.WebApp?.showAlert) {
+      window.Telegram.WebApp.showAlert(message);
+      return;
+    }
+
+    window.alert(message);
+  };
+
+  const handleQuickAction = (actionKey) => {
+    if (actionKey === "deposit") {
+      setDepositOpen(true);
+      return;
+    }
+
+    if (actionKey === "reward") {
+      handleTabChange("rewards");
+      return;
+    }
+
+    if (actionKey === "exchange") {
+      showBetaAlert("Обмен пока в бете.");
+      return;
+    }
+
+    showBetaAlert("Отправка пока в бете.");
   };
 
   const renderTabContent = (currentTab) => {
@@ -439,6 +524,58 @@ function App() {
             </div>
           </section>
 
+          <section className="quick-actions-wrap panel compact-panel">
+            <div className="quick-actions">
+              {quickActions.map((item) => (
+                <button
+                  className="quick-action"
+                  type="button"
+                  key={item.key}
+                  onClick={() => handleQuickAction(item.key)}
+                >
+                  <span className="quick-action-icon">{item.icon}</span>
+                  <span className="quick-action-label">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="single-column">
+            <article className="panel compact-panel">
+              <div className="card-head">
+                <div>
+                  <p className="section-tag">Activity</p>
+                  <h3>Последние действия</h3>
+                </div>
+              </div>
+              <div className="activity-list">
+                {activityFeed.map((item, index) => (
+                  <article className="activity-card" key={`${item.title}-${item.amount}-${index}`}>
+                    <div className="activity-icon-wrap">
+                      <span className="activity-icon">↑</span>
+                    </div>
+                    <div className="activity-main">
+                      <div className="activity-head">
+                        <div>
+                          <strong>{item.title}</strong>
+                          <div className="activity-stamp">
+                            <span>{item.date}</span>
+                            <span>{item.time}</span>
+                          </div>
+                        </div>
+                        <div className="activity-side">
+                          <strong className="activity-amount">{item.amount}</strong>
+                          <span className="activity-asset">{item.asset}</span>
+                        </div>
+                      </div>
+                      <p className="activity-note">{item.note}</p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </article>
+          </section>
+
           <section className="cards-row">
             <article className="panel compact-panel">
               <div className="card-head">
@@ -545,6 +682,35 @@ function App() {
       );
     }
 
+    if (currentTab === "rewards") {
+      return (
+        <section className="single-column">
+          <article className="panel compact-panel">
+            <div className="card-head">
+              <div>
+                <p className="section-tag">Rewards</p>
+                <h3>Вознаграждение</h3>
+              </div>
+            </div>
+            <div className="reward-grid">
+              {rewardPrograms.map((program) => (
+                <article className="reward-card" key={program.title}>
+                  <div className="reward-head">
+                    <strong>{program.title}</strong>
+                    <span className="reward-pill">{program.reward}</span>
+                  </div>
+                  <p>{program.note}</p>
+                  <button className="ghost-link reward-link" type="button" onClick={() => setDepositOpen(true)}>
+                    Активировать
+                  </button>
+                </article>
+              ))}
+            </div>
+          </article>
+        </section>
+      );
+    }
+
     return (
       <section className="single-column">
         <article className="panel compact-panel">
@@ -615,6 +781,11 @@ function App() {
           label="Доход"
           active={tab === "earnings"}
           onClick={() => handleTabChange("earnings")}
+        />
+        <BottomNavButton
+          label="Вознаграждение"
+          active={tab === "rewards"}
+          onClick={() => handleTabChange("rewards")}
         />
         <BottomNavButton label="Новости" active={tab === "news"} onClick={() => handleTabChange("news")} />
       </nav>
