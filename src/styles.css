@@ -169,26 +169,68 @@ button {
 }
 
 .brand-glyph {
+  position: relative;
   width: 46px;
   height: 46px;
   display: grid;
   place-items: center;
   border-radius: 14px;
-  color: #f5eeff;
+  isolation: isolate;
+  color: #ffffff;
   background:
-    linear-gradient(135deg, rgba(138, 101, 255, 0.9), rgba(91, 255, 162, 0.52)),
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.18), transparent 60%);
+    linear-gradient(160deg, rgba(4, 3, 8, 0.98), rgba(23, 12, 39, 0.96) 52%, rgba(6, 4, 12, 0.98)),
+    radial-gradient(circle at 24% 20%, rgba(194, 170, 255, 0.22), transparent 42%),
+    radial-gradient(circle at 78% 78%, rgba(117, 66, 235, 0.28), transparent 52%);
+  border: 1px solid rgba(181, 151, 255, 0.18);
   box-shadow:
-    0 12px 24px rgba(138, 101, 255, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    0 16px 28px rgba(11, 6, 20, 0.56),
+    0 0 24px rgba(117, 66, 235, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
   flex-shrink: 0;
   overflow: hidden;
 }
 
+.brand-glyph::before,
+.brand-glyph::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.brand-glyph::before {
+  inset: -35%;
+  background: linear-gradient(
+    118deg,
+    transparent 22%,
+    rgba(213, 199, 255, 0.06) 38%,
+    rgba(177, 140, 255, 0.58) 50%,
+    rgba(213, 199, 255, 0.08) 62%,
+    transparent 78%
+  );
+  transform: translate3d(-120%, 0, 0) rotate(16deg);
+  mix-blend-mode: screen;
+  animation: brand-sheen 4.3s ease-in-out infinite;
+}
+
+.brand-glyph::after {
+  background:
+    radial-gradient(circle at 22% 24%, rgba(255, 255, 255, 0.12), transparent 24%),
+    radial-gradient(circle at 72% 70%, rgba(131, 80, 255, 0.28), transparent 38%);
+  opacity: 0.86;
+  animation: brand-pulse 4.8s ease-in-out infinite alternate;
+}
+
 .brand-icon {
-  width: 28px;
-  height: 28px;
+  position: relative;
+  z-index: 1;
+  width: 32px;
+  height: 32px;
   display: block;
+  color: #ffffff;
+  filter:
+    drop-shadow(0 4px 12px rgba(255, 255, 255, 0.18))
+    drop-shadow(0 0 10px rgba(181, 151, 255, 0.14));
 }
 
 .brand-text {
@@ -197,8 +239,8 @@ button {
 
 .brand-main {
   display: block;
-  font-size: 24px;
-  letter-spacing: 0.14em;
+  font-size: 22px;
+  letter-spacing: 0.12em;
   line-height: 0.95;
   color: #f7f4ff;
   text-transform: uppercase;
@@ -210,7 +252,7 @@ button {
 .brand-sub {
   display: block;
   font-size: 10px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--violet-soft);
 }
@@ -262,6 +304,29 @@ button {
 
 .language-button:active {
   transform: scale(0.97);
+}
+
+@keyframes brand-sheen {
+  0% {
+    transform: translate3d(-120%, 0, 0) rotate(16deg);
+  }
+
+  58%,
+  100% {
+    transform: translate3d(120%, 0, 0) rotate(16deg);
+  }
+}
+
+@keyframes brand-pulse {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.96);
+  }
+
+  100% {
+    opacity: 0.95;
+    transform: scale(1.08);
+  }
 }
 
 .language-button.active {

@@ -37,13 +37,13 @@ const uiText = {
     locale: "ru-RU",
     languageSwitchLabel: "Переключение языка",
     brand: {
-      main: "PEGAS",
+      main: "PEGASUS",
       sub: "market autopilot"
     },
     hero: {
       closeLabel: "Закрыть блок",
       tag: "AI Capital Autopilot",
-      title: "Внеси баланс. PEGAS сам ищет, читает и ведет сделку.",
+      title: "Внеси баланс. PEGASUS сам ищет, читает и ведет сделку.",
       description:
         "Нейросеть отслеживает последние новости, оценивает импульс и включает торговый автопилот без ручной рутины.",
       tags: ["AI news scan", "autopilot entry", "smart risk exit"]
@@ -73,7 +73,7 @@ const uiText = {
     },
     home: {
       capitalTag: "Капитал",
-      balanceRunningNote: "PEGAS уже ведет позицию и пересчитывает доход в live-режиме.",
+      balanceRunningNote: "PEGASUS уже ведет позицию и пересчитывает доход в live-режиме.",
       balanceClosedNote: "Сессия закрыта. Можно снова пополнить баланс и запустить AI.",
       balanceIdleNote: "Внеси баланс, чтобы запустить AI-режим и передать работу алгоритму.",
       depositButton: "Пополнить",
@@ -99,17 +99,17 @@ const uiText = {
       supportCopy: "Если нужна помощь по депозиту, обмену или наградам, поддержка подключит тебя вручную.",
       supportLink: "Открыть поддержку",
       newsTag: "Новости",
-      newsTitle: "Что PEGAS видит сейчас",
+      newsTitle: "Что PEGASUS видит сейчас",
       newsAll: "Все",
       pinnedLabel: "Закреплено",
-      whyTag: "Почему PEGAS",
+      whyTag: "Почему PEGASUS",
       whyTitle: "Почему это выглядит как AI-бизнес"
     },
     earnings: {
       tag: "Доход",
       title: "Как выглядит доход в live-режиме",
       engineTag: "Движок",
-      sourceTitle: "На чем PEGAS забирает процент",
+      sourceTitle: "На чем PEGASUS забирает процент",
       shareLabel: "доля бота"
     },
     rewards: {
@@ -137,7 +137,7 @@ const uiText = {
       {
         name: "LYN impulse engine",
         share: "1.8%",
-        note: "PEGAS входит после подтвержденного ускорения и берет часть движения."
+        note: "PEGASUS входит после подтвержденного ускорения и берет часть движения."
       },
       {
         name: "BTC news reaction",
@@ -167,8 +167,8 @@ const uiText = {
       }
     ],
     pinnedStory: {
-      coin: "PEGAS x LYN",
-      title: "PEGAS сделал коллаборацию с LYN. Теперь зарабатывать на AI-валюте стало еще проще.",
+      coin: "PEGASUS x LYN",
+      title: "PEGASUS сделал коллаборацию с LYN. Теперь зарабатывать на AI-валюте стало еще проще.",
       description: "Новый режим усиливает AI-скан новостей и ускоряет автопилот на монете LYN.",
       trend: "bullish",
       pinned: true
@@ -204,13 +204,13 @@ const uiText = {
     locale: "en-US",
     languageSwitchLabel: "Language switch",
     brand: {
-      main: "PEGAS",
+      main: "PEGASUS",
       sub: "market autopilot"
     },
     hero: {
       closeLabel: "Close banner",
       tag: "AI Capital Autopilot",
-      title: "Fund the balance. PEGAS scans, reads, and manages the trade.",
+      title: "Fund the balance. PEGASUS scans, reads, and manages the trade.",
       description:
         "The model watches the latest headlines, measures momentum, and runs the trading autopilot without manual routine.",
       tags: ["AI news scan", "autopilot entry", "smart risk exit"]
@@ -240,7 +240,7 @@ const uiText = {
     },
     home: {
       capitalTag: "Capital",
-      balanceRunningNote: "PEGAS is already managing the position and recalculating profit live.",
+      balanceRunningNote: "PEGASUS is already managing the position and recalculating profit live.",
       balanceClosedNote: "Session closed. You can fund again and launch AI.",
       balanceIdleNote: "Add funds to start AI mode and hand execution over to the engine.",
       depositButton: "Deposit",
@@ -266,17 +266,17 @@ const uiText = {
       supportCopy: "If you need help with deposits, swaps, or rewards, support will connect manually.",
       supportLink: "Open support",
       newsTag: "News",
-      newsTitle: "What PEGAS sees right now",
+      newsTitle: "What PEGASUS sees right now",
       newsAll: "All",
       pinnedLabel: "Pinned",
-      whyTag: "Why PEGAS",
+      whyTag: "Why PEGASUS",
       whyTitle: "Why this feels like an AI operation"
     },
     earnings: {
       tag: "Income",
       title: "How live income looks",
       engineTag: "Engine",
-      sourceTitle: "Where PEGAS captures margin",
+      sourceTitle: "Where PEGASUS captures margin",
       shareLabel: "bot share"
     },
     rewards: {
@@ -304,7 +304,7 @@ const uiText = {
       {
         name: "LYN impulse engine",
         share: "1.8%",
-        note: "PEGAS enters after confirmed acceleration and takes a slice of the move."
+        note: "PEGASUS enters after confirmed acceleration and takes a slice of the move."
       },
       {
         name: "BTC news reaction",
@@ -334,8 +334,8 @@ const uiText = {
       }
     ],
     pinnedStory: {
-      coin: "PEGAS x LYN",
-      title: "PEGAS launched a collaboration with LYN. Earning on an AI coin is now simpler.",
+      coin: "PEGASUS x LYN",
+      title: "PEGASUS launched a collaboration with LYN. Earning on an AI coin is now simpler.",
       description: "The new mode boosts the AI news scan and speeds up the autopilot on LYN.",
       trend: "bullish",
       pinned: true
@@ -385,20 +385,29 @@ const localizeTrend = (trend, copy) =>
 
 function BrandMark() {
   return (
-    <svg className="brand-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+    <svg className="brand-icon" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
       <path
-        d="M32.4 11.2c-2.6-2.1-6.6-2.2-9.4-.2l-6.7 4.7 4.7 2.7-3.8 5.1c-2.1 2.8-2.8 5.8-2 8.6.8 2.6 2.9 4.8 6.2 6.4l2.7-4-2.5-3.3 3.7-4.4 5.9-.5 4.8-7-2.2-2.5 1.8-5.4-3.2 1.8Z"
+        d="M17 27.5c4.8-11.7 13.9-19.3 27.2-22.7-4.6 4.1-7.8 8.7-9.5 13.9 5.9-2.7 11.9-3.1 18-.9-6.4 1.7-11.5 4.6-15.5 8.8 5-.1 9.6.9 13.6 3-6.2.6-11.6 2.6-16.1 6-4.6-1.7-8.7-4.6-12.1-8.8-1.4 4.4-4.4 9.1-9.1 14.2 1.7-6.3 2-10.9 1.1-13.5-.3-.9-.8-1.8-1.6-2.7Z"
+        fill="currentColor"
+        opacity="0.98"
+      />
+      <path
+        d="M24.6 54.6c1.4-3.2 1.7-6.1.9-8.8-1-3.6-.2-6.8 2.4-9.6l6.7-7.4 10.2-3.9 4.9-9 5.6 3.1-2.5 7 3 5.7-1.6 8.1-7.1 9.7c-4.8 6.5-12 9.7-21.8 9.8l-2.4-4.7 1.7-.1Z"
         fill="currentColor"
       />
-      <path d="M20.4 18.8l8.4-6.2" stroke="#10081a" strokeWidth="2" strokeLinecap="round" opacity="0.24" />
-      <circle cx="29.4" cy="18.2" r="1.5" fill="#10081a" opacity="0.58" />
       <path
-        d="M18.4 29.8c3.8 1.6 8.1 1.3 11.7-.8"
-        stroke="#10081a"
-        strokeWidth="2"
+        d="M37.2 19.6c4.1-.9 7.6-.1 10.6 2.5"
+        stroke="rgba(255,255,255,0.8)"
+        strokeWidth="2.8"
         strokeLinecap="round"
-        opacity="0.34"
       />
+      <path
+        d="M41.8 34.2c-3.2 1.1-5.7 3.1-7.4 6"
+        stroke="rgba(255,255,255,0.72)"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+      />
+      <circle cx="45.8" cy="28.8" r="1.8" fill="rgba(12,7,20,0.35)" />
     </svg>
   );
 }
@@ -610,7 +619,7 @@ function App() {
   useEffect(() => {
     if (typeof document !== "undefined") {
       document.documentElement.lang = language;
-      document.title = language === "ru" ? "PEGAS | AI-автопилот рынка" : "PEGAS | AI market autopilot";
+      document.title = language === "ru" ? "PEGASUS | AI-автопилот рынка" : "PEGASUS | AI market autopilot";
     }
 
     if (typeof window !== "undefined") {
