@@ -385,23 +385,21 @@ const localizeTrend = (trend, copy) =>
 
 function BrandMark() {
   return (
-    <svg className="brand-icon" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
-      <g
-        transform="translate(64 0) scale(-1 1)"
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
+    <svg className="brand-icon" viewBox="0 0 92 68" aria-hidden="true" focusable="false">
+      <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6 11.5c15.4-4.8 29.8-5.3 43 1.6" strokeWidth="2.6" />
+        <path d="M4 21.8c18.2-4.2 33.1-4 45 1" strokeWidth="2.8" />
+        <path d="M14 33.4c13.8-6.5 25.7-9.5 35.7-9" strokeWidth="2.8" />
         <path
-          d="M13.5 18.5c7.5-5.8 16.5-7.9 27-6.2-4.3 1.8-7.6 4.3-9.9 7.6 6.5-.6 12.4 1.1 17.9 5.1-5.7-.4-10.7.3-15 2.1 5.2 2 9 5.4 11.3 10.2-4.2-2.5-8.7-3.7-13.6-3.5-2.2 4.2-5.8 8-10.8 11.3-.8-3.9-.1-7.3 2.1-10.4-4 .2-7.8 1.8-11.5 4.8 1.8-5 5.1-8.8 10-11.2-3-.7-6.1-.5-9.3.4 2.6-3.8 6.1-6.5 10.4-8.1-2.4-1.4-5-2-7.8-1.8 3.7-2.4 7.8-2.8 12.2-1.3"
-          strokeWidth="3.2"
+          d="M49.2 13.4c8.5 2.7 13.8 7.1 15.8 13.2 1.2 3.6.6 6.9-1.8 9.7-2.4 2.8-5.4 5.5-9.1 8-2.5 1.8-4 3.8-4.6 6-1 4 1.6 6.7 7.8 8.1"
+          strokeWidth="5.8"
         />
-        <path d="M40.8 15.4c3 .5 5.8 1.9 8.2 4.2" strokeWidth="3.2" />
-        <path d="M43.3 14.2c-.1 2 .7 3.8 2.3 5.4" strokeWidth="3.2" />
-        <path d="M31.2 27.6c4-.8 7.8-.2 11.2 1.7" strokeWidth="2.8" strokeOpacity="0.84" />
-        <path d="M35.8 36.8c3.6 1.4 6.1 3.9 7.6 7.4" strokeWidth="2.8" strokeOpacity="0.76" />
-        <circle cx="41.7" cy="20.8" r="1.5" fill="currentColor" stroke="none" />
+        <path d="M57.2 57.8c11.2 1.2 20 4.5 26.4 10" strokeWidth="2.8" />
+        <path d="M48.7 14.1c5.7-.8 10.9.1 15.6 2.8" strokeWidth="2.4" strokeOpacity="0.92" />
+        <path d="M54 28.2c4.2-.5 8.1.2 11.6 2.2" strokeWidth="2.4" strokeOpacity="0.84" />
+        <path d="M68 25.2l7.4-4.8 9.2.2 3.7 3-5.2 2.4-8.2-.2" strokeWidth="3" />
+        <path d="M75.6 20.4l3.9-5.7" strokeWidth="2.4" />
+        <circle cx="79.8" cy="22.8" r="1.4" fill="currentColor" stroke="none" />
       </g>
     </svg>
   );
