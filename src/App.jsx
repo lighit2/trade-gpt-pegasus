@@ -862,8 +862,7 @@ function App() {
     const nextSimulationTicks = Math.max(0, Number(state.simulationTicks) || 0);
     const legacyResume =
       nextDemoAmount > 0 &&
-      nextDemoProfit === 0 &&
-      nextTotalTraded === 0 &&
+      nextTotalDeposited > 0 &&
       Array.isArray(state.activityFeed) &&
       state.activityFeed.some((item) => item?.type === "deposit");
     const nextDemoRunning = Boolean(state.isDemoRunning) || legacyResume;
@@ -1071,7 +1070,7 @@ function App() {
   }, [isStateHydrated, persistedAppState, telegramUser?.id]);
 
   useEffect(() => {
-    if (!telegramUser?.id || !isStateHydrated || (!hasPendingDeposit && !isDemoRunning)) {
+    if (!telegramUser?.id || !isStateHydrated || (demoAmount <= 0 && !hasPendingDeposit)) {
       return;
     }
 
@@ -1099,7 +1098,7 @@ function App() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [applyPersistedState, hasPendingDeposit, isDemoRunning, isStateHydrated, telegramUser?.id]);
+  }, [applyPersistedState, demoAmount, hasPendingDeposit, isStateHydrated, telegramUser?.id]);
 
   useEffect(() => {
     return () => {
@@ -1629,7 +1628,12 @@ function App() {
           <section className="hero-panel">
             <div className="balance-panel panel">
               <p className="section-tag">{copy.home.capitalTag}</p>
-              <div className="balance-value">$ {balance.toFixed(2)}</div>
+              <div className="balance-metric-row">
+                <div className="balance-value">$ {balance.toFixed(2)}</div>
+                <div className={demoPercent >= 0 ? "balance-percent positive" : "balance-percent negative"}>
+                  {formatSignedPercent(demoAmount > 0 ? demoPercent : 0)}
+                </div>
+              </div>
               <p className="balance-note">
                 {demoAmount > 0
                   ? isDemoRunning

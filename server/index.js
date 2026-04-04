@@ -8,7 +8,6 @@ import { fileURLToPath } from "url";
 const app = express();
 const port = Number(process.env.PORT || 3001);
 const SIMULATION_STEP_MS = 5000;
-const SIMULATION_MAX_STEPS = 24;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distPath = path.resolve(__dirname, "../dist");
@@ -213,11 +212,11 @@ function sanitizeUserState(state = {}) {
     : [];
   const demoAmount = Number(state.demoAmount) || 0;
   const demoProfit = Number(state.demoProfit) || 0;
+  const totalDeposited = Number(state.totalDeposited) || 0;
   const totalTraded = Number(state.totalTraded) || 0;
   const legacyRunning =
     demoAmount > 0 &&
-    demoProfit === 0 &&
-    totalTraded === 0 &&
+    totalDeposited > 0 &&
     activityFeed.some((item) => item.type === "deposit");
 
   return {
@@ -225,7 +224,7 @@ function sanitizeUserState(state = {}) {
     demoAmount,
     demoProfit,
     demoPercent: Number(state.demoPercent) || 0,
-    totalDeposited: Number(state.totalDeposited) || 0,
+    totalDeposited,
     totalTraded,
     isDemoRunning: Boolean(state.isDemoRunning) || legacyRunning,
     simulationEpoch: Number(state.simulationEpoch) || 0,
@@ -274,7 +273,6 @@ function reconcileUserState(state = {}, now = Date.now()) {
   }
 
   const elapsedTicks = Math.min(
-    SIMULATION_MAX_STEPS,
     Math.floor(Math.max(0, now - currentState.simulationEpoch) / SIMULATION_STEP_MS)
   );
 
@@ -287,18 +285,11 @@ function reconcileUserState(state = {}, now = Date.now()) {
     (currentState.demoAmount > 0 ? roundToCents((currentState.demoProfit / currentState.demoAmount) * 100) : 0);
   let nextTotalTraded = currentState.totalTraded;
   let nextTicks = currentState.simulationTicks;
-  let nextIsDemoRunning = currentState.isDemoRunning;
-
   for (let tick = currentState.simulationTicks; tick < elapsedTicks; tick += 1) {
     const { percentDelta, tradeDelta } = getSimulationStep(currentState.simulationEpoch, tick);
     nextPercent = Math.max(-1.5, Math.min(10, roundToCents(nextPercent + percentDelta)));
     nextTotalTraded = roundToTenths(nextTotalTraded + tradeDelta);
     nextTicks = tick + 1;
-
-    if (nextTicks >= SIMULATION_MAX_STEPS || nextPercent >= 10) {
-      nextIsDemoRunning = false;
-      break;
-    }
   }
 
   return sanitizeUserState({
@@ -307,7 +298,7 @@ function reconcileUserState(state = {}, now = Date.now()) {
     demoPercent: nextPercent,
     totalTraded: nextTotalTraded,
     simulationTicks: nextTicks,
-    isDemoRunning: nextIsDemoRunning
+    isDemoRunning: currentState.isDemoRunning
   });
 }
 

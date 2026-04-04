@@ -605,7 +605,31 @@ button:disabled {
   font-size: 34px;
   line-height: 1;
   letter-spacing: -0.04em;
+}
+
+.balance-metric-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin-bottom: 10px;
+}
+
+.balance-percent {
+  flex-shrink: 0;
+  min-height: 34px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(138, 101, 255, 0.14), rgba(91, 255, 162, 0.08)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
 }
 
 .balance-note {
@@ -1838,6 +1862,16 @@ button:disabled {
 
   .balance-value {
     font-size: 30px;
+  }
+
+  .balance-metric-row {
+    align-items: flex-start;
+  }
+
+  .balance-percent {
+    min-height: 30px;
+    padding: 0 10px;
+    font-size: 12px;
   }
 
   .candle-grid {
