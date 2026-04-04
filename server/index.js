@@ -184,6 +184,10 @@ function roundToCents(value) {
   return Number(Number(value || 0).toFixed(2));
 }
 
+function roundToThousandths(value) {
+  return Number(Number(value || 0).toFixed(3));
+}
+
 function roundToTenths(value) {
   return Number(Number(value || 0).toFixed(1));
 }
@@ -200,7 +204,7 @@ function getSimulationStep(epoch, tick) {
   const tradeRoll = deterministicUnit(safeEpoch * 0.00021 + (safeTick + 1) * 78.233);
 
   return {
-    percentDelta: roundToCents(percentRoll * 1.8 - 0.7),
+    percentDelta: roundToThousandths(percentRoll * 0.024 - 0.008),
     tradeDelta: roundToTenths(0.1 + tradeRoll * 0.1)
   };
 }
@@ -282,12 +286,12 @@ function reconcileUserState(state = {}, now = Date.now()) {
 
   let nextPercent =
     Number(currentState.demoPercent) ||
-    (currentState.demoAmount > 0 ? roundToCents((currentState.demoProfit / currentState.demoAmount) * 100) : 0);
+    (currentState.demoAmount > 0 ? roundToThousandths((currentState.demoProfit / currentState.demoAmount) * 100) : 0);
   let nextTotalTraded = currentState.totalTraded;
   let nextTicks = currentState.simulationTicks;
   for (let tick = currentState.simulationTicks; tick < elapsedTicks; tick += 1) {
     const { percentDelta, tradeDelta } = getSimulationStep(currentState.simulationEpoch, tick);
-    nextPercent = Math.max(-1.5, Math.min(10, roundToCents(nextPercent + percentDelta)));
+    nextPercent = Math.max(-1.5, Math.min(10, roundToThousandths(nextPercent + percentDelta)));
     nextTotalTraded = roundToTenths(nextTotalTraded + tradeDelta);
     nextTicks = tick + 1;
   }
@@ -347,7 +351,7 @@ function mergeUserState(existingState = {}, incomingState = {}) {
   const mergedTotalTraded = Math.max(existing.totalTraded, incoming.totalTraded, simulationSource.totalTraded);
   const mergedDemoProfit = roundToCents(simulationSource.demoProfit);
   const mergedDemoPercent =
-    mergedDemoAmount > 0 ? roundToCents((mergedDemoProfit / mergedDemoAmount) * 100) : 0;
+    mergedDemoAmount > 0 ? roundToThousandths((mergedDemoProfit / mergedDemoAmount) * 100) : 0;
 
   return sanitizeUserState({
     currentAsset: incoming.currentAsset,
@@ -1260,7 +1264,7 @@ app.post("/api/admin/deposits/approve", async (req, res) => {
     const amount = Number(request.amountUsd) || 0;
     const nextDemoAmount = Number((currentState.demoAmount + amount).toFixed(2));
     const nextTotalDeposited = Number((currentState.totalDeposited + amount).toFixed(2));
-    const nextDemoPercent = nextDemoAmount > 0 ? Number(((currentState.demoProfit / nextDemoAmount) * 100).toFixed(2)) : 0;
+    const nextDemoPercent = nextDemoAmount > 0 ? roundToThousandths((currentState.demoProfit / nextDemoAmount) * 100) : 0;
     const nextSimulationEpoch = Date.now();
     const nextActivityFeed = [
       {
