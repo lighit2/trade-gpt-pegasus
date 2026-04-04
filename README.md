@@ -1,6 +1,7 @@
 # Trade GPT Pegasus
 
 Telegram Mini App with a promo landing screen, profit dashboard, and a small backend bridge for Telegram Bot API testing.
+The app now uses `EN/ZH` UI and includes Telegram support routing for operators.
 
 ## Stack
 
@@ -32,6 +33,12 @@ VITE_API_BASE_URL=https://your-render-service.onrender.com
 ```
 
 `TELEGRAM_ADMIN_CHAT_ID` is preferred for owner/admin notifications. If it is not set, the server falls back to `TELEGRAM_TEST_CHAT_ID`.
+
+## Telegram Support Flow
+
+- Users can request help from the Mini App support button or by sending `/support` to the bot.
+- Admin can add support operators with `/add <telegram_id>`.
+- Support operators reply by answering the bot's support message directly, or with `/reply <telegram_id> <message>`.
 
 ## Deploy
 

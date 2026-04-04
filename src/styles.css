@@ -139,9 +139,8 @@ button:disabled {
 }
 
 .topbar {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   margin-bottom: 12px;
@@ -152,7 +151,8 @@ button:disabled {
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .eyebrow,
@@ -180,10 +180,10 @@ button:disabled {
 
 .brand-lockup {
   display: flex;
-  flex: 1 1 auto;
   align-items: center;
   gap: 14px;
   min-width: 0;
+  width: 100%;
   padding: 10px 14px;
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 18px;
@@ -930,7 +930,7 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 46px;
+  min-height: 40px;
   padding: 0 12px;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -1739,28 +1739,59 @@ button:disabled {
 }
 
 @media (max-width: 520px) {
+  .topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .topbar-actions {
+    width: auto;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
   .brand-lockup {
-    padding: 10px 12px;
-    gap: 12px;
+    padding: 8px 10px;
+    gap: 10px;
   }
 
   .brand-glyph {
-    width: 58px;
-    height: 38px;
+    width: 52px;
+    height: 34px;
+    border-radius: 14px;
   }
 
   .brand-icon {
-    width: 50px;
-    height: 27px;
+    width: 44px;
+    height: 23px;
   }
 
   .brand-main {
-    font-size: 21px;
+    font-size: 17px;
+    letter-spacing: 0.1em;
   }
 
   .brand-sub {
-    font-size: 8px;
-    letter-spacing: 0.26em;
+    font-size: 6px;
+    letter-spacing: 0.18em;
+  }
+
+  .language-switch {
+    gap: 6px;
+    padding: 4px;
+  }
+
+  .language-button {
+    min-width: 40px;
+    min-height: 30px;
+    padding: 0 10px;
+    font-size: 10px;
+  }
+
+  .admin-link {
+    min-height: 36px;
+    padding: 0 10px;
+    font-size: 11px;
   }
 
   .hero-panel,
@@ -1815,15 +1846,6 @@ button:disabled {
 
   .chart-meta {
     justify-items: stretch;
-  }
-
-  .topbar {
-    align-items: flex-start;
-  }
-
-  .topbar-actions {
-    width: 100%;
-    justify-content: space-between;
   }
 
   .admin-card-head,

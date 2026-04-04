@@ -13,9 +13,13 @@ const distPath = path.resolve(__dirname, "../dist");
 const dataDir = path.resolve(__dirname, "../data");
 const userStatePath = path.join(dataDir, "user-state.json");
 const pendingDepositsPath = path.join(dataDir, "pending-deposits.json");
+const supportStatePath = path.join(dataDir, "support-state.json");
 let lynMarketCache = null;
 let userStateCache = null;
 let pendingDepositsCache = null;
+let supportStateCache = null;
+let telegramPollingStarted = false;
+let telegramUpdateOffset = 0;
 
 function toUserKey(value) {
   const normalized = String(value || "").trim();
@@ -70,6 +74,93 @@ async function writePendingDepositsStore(store) {
   await fs.mkdir(dataDir, { recursive: true });
   await fs.writeFile(pendingDepositsPath, JSON.stringify(store, null, 2));
   pendingDepositsCache = store;
+}
+
+function sanitizeSupportState(state = {}) {
+  const agents = [...new Set((Array.isArray(state.agents) ? state.agents : []).map(toUserKey).filter(Boolean))];
+  const threads = Object.fromEntries(
+    Object.entries(state.threads || {})
+      .map(([userId, thread]) => {
+        const normalizedUserId = toUserKey(userId);
+
+        if (!normalizedUserId || !thread || typeof thread !== "object") {
+          return null;
+        }
+
+        return [
+          normalizedUserId,
+          {
+            userId: normalizedUserId,
+            username: String(thread.username || ""),
+            displayName: String(thread.displayName || "Unknown"),
+            source: String(thread.source || "bot"),
+            status: thread.status === "closed" ? "closed" : "open",
+            openedAt: Number(thread.openedAt) || Date.now(),
+            updatedAt: Number(thread.updatedAt) || Date.now(),
+            lastTicket: thread.lastTicket ? String(thread.lastTicket) : "",
+            lastMessage: thread.lastMessage ? String(thread.lastMessage).slice(0, 1500) : ""
+          }
+        ];
+      })
+      .filter(Boolean)
+  );
+  const replyMap = Object.fromEntries(
+    Object.entries(state.replyMap || {})
+      .map(([key, value]) => {
+        if (!/^\d+:\d+$/.test(key)) {
+          return null;
+        }
+
+        const userId = toUserKey(value?.userId || value);
+
+        if (!userId) {
+          return null;
+        }
+
+        return [
+          key,
+          {
+            userId,
+            createdAt: Number(value?.createdAt) || Date.now()
+          }
+        ];
+      })
+      .filter(Boolean)
+      .sort((left, right) => right[1].createdAt - left[1].createdAt)
+      .slice(0, 600)
+  );
+
+  return {
+    agents,
+    threads,
+    replyMap
+  };
+}
+
+async function readSupportStateStore() {
+  if (supportStateCache) {
+    return supportStateCache;
+  }
+
+  try {
+    const raw = await fs.readFile(supportStatePath, "utf8");
+    supportStateCache = sanitizeSupportState(JSON.parse(raw));
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+
+    supportStateCache = sanitizeSupportState();
+  }
+
+  return supportStateCache;
+}
+
+async function writeSupportStateStore(store) {
+  const normalized = sanitizeSupportState(store);
+  await fs.mkdir(dataDir, { recursive: true });
+  await fs.writeFile(supportStatePath, JSON.stringify(normalized, null, 2));
+  supportStateCache = normalized;
 }
 
 function sanitizeActivityItem(item) {
@@ -146,12 +237,16 @@ function mergeUserState(existingState = {}, incomingState = {}) {
   });
 }
 
+function getPrimaryAdminChatId() {
+  return toUserKey(process.env.TELEGRAM_ADMIN_CHAT_ID || process.env.TELEGRAM_TEST_CHAT_ID);
+}
+
 function getAdminChatId(fallbackUserId = null) {
   return toUserKey(process.env.TELEGRAM_ADMIN_CHAT_ID || process.env.TELEGRAM_TEST_CHAT_ID || fallbackUserId);
 }
 
 function isAdminUser(userId) {
-  const adminChatId = getAdminChatId();
+  const adminChatId = getPrimaryAdminChatId();
   return Boolean(adminChatId && userId && adminChatId === toUserKey(userId));
 }
 
@@ -159,31 +254,420 @@ function getUserDisplayName(user = {}) {
   return [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.username || "Unknown";
 }
 
-async function sendTelegramMessage(chatId, text) {
+function getTelegramProfile(message = {}) {
+  const source = message.from || message.chat || {};
+
+  return {
+    id: String(source.id || ""),
+    username: source.username || "",
+    firstName: source.first_name || "",
+    lastName: source.last_name || ""
+  };
+}
+
+function getTelegramText(message = {}) {
+  return String(message.text || message.caption || "").trim();
+}
+
+function getSupportRecipients(state) {
+  return [...new Set([getPrimaryAdminChatId(), ...(state?.agents || [])].filter(Boolean))];
+}
+
+function isSupportAgent(state, userId) {
+  const normalizedUserId = toUserKey(userId);
+  return Boolean(normalizedUserId && state?.agents?.includes(normalizedUserId));
+}
+
+function isSupportStaff(state, userId) {
+  const normalizedUserId = toUserKey(userId);
+  return Boolean(normalizedUserId && (isAdminUser(normalizedUserId) || isSupportAgent(state, normalizedUserId)));
+}
+
+async function callTelegramApi(method, body = {}) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
 
-  if (!token || !chatId) {
-    throw new Error("Missing TELEGRAM_BOT_TOKEN or target chat id");
+  if (!token) {
+    throw new Error("Missing TELEGRAM_BOT_TOKEN");
   }
 
-  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+  const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text
-    })
+    body: JSON.stringify(body)
   });
 
-  const payload = await response.json();
+  const responsePayload = await response.json();
 
-  if (!response.ok || !payload.ok) {
-    throw new Error(payload.description || "Telegram Bot API rejected the request");
+  if (!response.ok || !responsePayload.ok) {
+    throw new Error(responsePayload.description || "Telegram Bot API rejected the request");
   }
 
-  return payload.result;
+  return responsePayload.result;
+}
+
+async function sendTelegramMessage(chatId, text) {
+  if (!chatId) {
+    throw new Error("Missing target chat id");
+  }
+
+  return callTelegramApi("sendMessage", {
+    chat_id: chatId,
+    text
+  });
+}
+
+function upsertSupportThread(state, { userId, user, source, ticket = "", messageText = "" }) {
+  const existing = state.threads[userId] || {};
+  const nextThread = {
+    userId,
+    username: user.username || existing.username || "",
+    displayName: getUserDisplayName(user) || existing.displayName || "Unknown",
+    source: source || existing.source || "bot",
+    status: "open",
+    openedAt: existing.openedAt || Date.now(),
+    updatedAt: Date.now(),
+    lastTicket: ticket || existing.lastTicket || "",
+    lastMessage: messageText ? String(messageText).slice(0, 1500) : existing.lastMessage || ""
+  };
+
+  state.threads[userId] = nextThread;
+  return nextThread;
+}
+
+function registerSupportReplyTarget(state, chatId, messageId, userId) {
+  if (!chatId || !messageId || !userId) {
+    return;
+  }
+
+  state.replyMap[`${chatId}:${messageId}`] = {
+    userId,
+    createdAt: Date.now()
+  };
+}
+
+async function notifySupportRecipients(state, userId, lines) {
+  const recipients = getSupportRecipients(state);
+  let notifiedCount = 0;
+
+  for (const chatId of recipients) {
+    try {
+      const result = await sendTelegramMessage(chatId, lines.join("\n"));
+      notifiedCount += 1;
+
+      if (result?.message_id) {
+        registerSupportReplyTarget(state, chatId, result.message_id, userId);
+      }
+    } catch (error) {
+      console.error(`Failed to notify support recipient ${chatId}:`, error.message || error);
+    }
+  }
+
+  return {
+    notifiedCount,
+    recipients
+  };
+}
+
+async function createSupportRequest({ userId, user, source = "bot", ticket = "", messageText = "" }) {
+  const supportState = await readSupportStateStore();
+  const thread = upsertSupportThread(supportState, {
+    userId,
+    user,
+    source,
+    ticket,
+    messageText
+  });
+  const lines = [
+    "Pegasus support request",
+    "",
+    `User: ${thread.displayName}`,
+    `Telegram ID: ${thread.userId}`,
+    thread.username ? `Username: @${thread.username}` : null,
+    `Source: ${thread.source}`,
+    ticket ? `Ticket: ${ticket}` : null,
+    messageText ? `Message: ${String(messageText).slice(0, 1500)}` : null,
+    "",
+    "Reply to this message to answer the user."
+  ].filter(Boolean);
+  const notifyResult = await notifySupportRecipients(supportState, userId, lines);
+
+  await writeSupportStateStore(supportState);
+
+  return {
+    thread,
+    ...notifyResult
+  };
+}
+
+async function forwardSupportMessage({ userId, user, text }) {
+  const supportState = await readSupportStateStore();
+  const existing = supportState.threads[userId];
+
+  if (!existing || existing.status !== "open") {
+    return {
+      forwarded: false,
+      notifiedCount: 0
+    };
+  }
+
+  const thread = upsertSupportThread(supportState, {
+    userId,
+    user,
+    source: existing.source || "bot",
+    ticket: existing.lastTicket || "",
+    messageText: text
+  });
+  const lines = [
+    "Pegasus support message",
+    "",
+    `User: ${thread.displayName}`,
+    `Telegram ID: ${thread.userId}`,
+    thread.username ? `Username: @${thread.username}` : null,
+    thread.lastTicket ? `Ticket: ${thread.lastTicket}` : null,
+    `Message: ${String(text).slice(0, 1500)}`,
+    "",
+    "Reply to this message to answer the user."
+  ].filter(Boolean);
+  const notifyResult = await notifySupportRecipients(supportState, userId, lines);
+
+  await writeSupportStateStore(supportState);
+
+  return {
+    forwarded: notifyResult.notifiedCount > 0,
+    ...notifyResult
+  };
+}
+
+async function sendSupportReply(targetUserId, replyText) {
+  const text = String(replyText || "").trim();
+
+  if (!targetUserId || !text) {
+    return false;
+  }
+
+  await sendTelegramMessage(targetUserId, `PEGASUS Support\n\n${text}`);
+  return true;
+}
+
+async function handleTelegramCommand(message) {
+  const senderId = toUserKey(message.from?.id || message.chat?.id);
+  const text = getTelegramText(message);
+  const user = getTelegramProfile(message);
+
+  if (!senderId || !text.startsWith("/")) {
+    return false;
+  }
+
+  if (/^\/add(?:@\w+)?\b/i.test(text)) {
+    if (!isAdminUser(senderId)) {
+      await sendTelegramMessage(senderId, "Admin access required.");
+      return true;
+    }
+
+    const targetId = toUserKey(text.split(/\s+/)[1]);
+
+    if (!targetId) {
+      await sendTelegramMessage(senderId, "Usage: /add <telegram_id>");
+      return true;
+    }
+
+    const supportState = await readSupportStateStore();
+
+    if (!supportState.agents.includes(targetId)) {
+      supportState.agents.push(targetId);
+      await writeSupportStateStore(supportState);
+    }
+
+    await sendTelegramMessage(senderId, `Support agent ${targetId} added.`);
+
+    try {
+      await sendTelegramMessage(
+        targetId,
+        "You were added as a PEGASUS support agent. Reply to support messages from the bot to answer users."
+      );
+    } catch {
+      return true;
+    }
+
+    return true;
+  }
+
+  if (/^\/reply(?:@\w+)?\b/i.test(text)) {
+    const supportState = await readSupportStateStore();
+
+    if (!isSupportStaff(supportState, senderId)) {
+      await sendTelegramMessage(senderId, "Support access required.");
+      return true;
+    }
+
+    const match = text.match(/^\/reply(?:@\w+)?\s+(\d+)\s+([\s\S]+)/i);
+
+    if (!match) {
+      await sendTelegramMessage(senderId, "Usage: /reply <telegram_id> <message>");
+      return true;
+    }
+
+    try {
+      await sendSupportReply(match[1], match[2]);
+      await sendTelegramMessage(senderId, `Reply sent to ${match[1]}.`);
+    } catch (error) {
+      await sendTelegramMessage(senderId, error.message || "Failed to send reply.");
+    }
+
+    return true;
+  }
+
+  if (/^\/support(?:@\w+)?\b/i.test(text)) {
+    const messageText = text.replace(/^\/support(?:@\w+)?\s*/i, "").trim();
+
+    try {
+      const result = await createSupportRequest({
+        userId: senderId,
+        user,
+        source: "bot",
+        messageText
+      });
+
+      if (result.notifiedCount === 0) {
+        await sendTelegramMessage(senderId, "Support is currently unavailable. Please try again later.");
+        return true;
+      }
+
+      await sendTelegramMessage(senderId, "Support request created. An operator will reply in this chat.");
+    } catch (error) {
+      await sendTelegramMessage(senderId, error.message || "Failed to create support request.");
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+async function handleSupportStaffReply(message) {
+  const senderId = toUserKey(message.from?.id || message.chat?.id);
+  const replyToMessageId = Number(message.reply_to_message?.message_id);
+  const replyText = getTelegramText(message);
+
+  if (!senderId || !replyToMessageId || !replyText) {
+    return false;
+  }
+
+  const supportState = await readSupportStateStore();
+
+  if (!isSupportStaff(supportState, senderId)) {
+    return false;
+  }
+
+  const targetUserId = supportState.replyMap[`${senderId}:${replyToMessageId}`]?.userId;
+
+  if (!targetUserId) {
+    return false;
+  }
+
+  try {
+    await sendSupportReply(targetUserId, replyText);
+    await sendTelegramMessage(senderId, `Reply sent to ${targetUserId}.`);
+
+    if (supportState.threads[targetUserId]) {
+      supportState.threads[targetUserId] = {
+        ...supportState.threads[targetUserId],
+        updatedAt: Date.now()
+      };
+      await writeSupportStateStore(supportState);
+    }
+  } catch (error) {
+    await sendTelegramMessage(senderId, error.message || "Failed to send reply.");
+  }
+
+  return true;
+}
+
+async function handleTelegramMessage(message) {
+  const senderId = toUserKey(message.from?.id || message.chat?.id);
+  const text = getTelegramText(message);
+  const user = getTelegramProfile(message);
+
+  if (!senderId) {
+    return;
+  }
+
+  if (await handleTelegramCommand(message)) {
+    return;
+  }
+
+  if (await handleSupportStaffReply(message)) {
+    return;
+  }
+
+  const supportState = await readSupportStateStore();
+
+  if (isSupportStaff(supportState, senderId)) {
+    if (text) {
+      await sendTelegramMessage(senderId, "Reply to a support message from the bot to answer the user.");
+    }
+    return;
+  }
+
+  if (!text) {
+    return;
+  }
+
+  const forwardResult = await forwardSupportMessage({
+    userId: senderId,
+    user,
+    text
+  });
+
+  if (forwardResult.forwarded) {
+    await sendTelegramMessage(senderId, "Your message was forwarded to support.");
+    return;
+  }
+
+  await sendTelegramMessage(senderId, "Send /support to contact a live operator.");
+}
+
+async function startTelegramPolling() {
+  if (telegramPollingStarted || !process.env.TELEGRAM_BOT_TOKEN) {
+    return;
+  }
+
+  telegramPollingStarted = true;
+
+  try {
+    await callTelegramApi("deleteWebhook", {
+      drop_pending_updates: false
+    });
+  } catch (error) {
+    console.error("Failed to drop Telegram webhook:", error.message || error);
+  }
+
+  const poll = async () => {
+    try {
+      const updates = await callTelegramApi("getUpdates", {
+        offset: telegramUpdateOffset,
+        timeout: 45,
+        allowed_updates: ["message"]
+      });
+
+      for (const update of updates) {
+        telegramUpdateOffset = update.update_id + 1;
+
+        if (update.message) {
+          await handleTelegramMessage(update.message);
+        }
+      }
+    } catch (error) {
+      console.error("Telegram polling error:", error.message || error);
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
+
+    setImmediate(poll);
+  };
+
+  poll();
 }
 
 async function fetchBinanceMarket(symbol) {
@@ -330,8 +814,8 @@ app.get("/api/news/latest", async (_req, res) => {
             : "CRYPTO",
       trend:
         /risk|loss|slips|low|fails|scam|pressure|fear/i.test(item.title + item.description)
-          ? "Медвежий"
-          : "Бычий"
+          ? "Bearish"
+          : "Bullish"
     }));
 
     return res.json({ ok: true, items });
@@ -411,6 +895,44 @@ app.post("/api/app-state", async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       error: error.message || "Failed to save user state"
+    });
+  }
+});
+
+app.post("/api/support/request", async (req, res) => {
+  const userId = toUserKey(req.body?.userId);
+  const user = req.body?.user || {};
+  const ticket = req.body?.ticket ? String(req.body.ticket) : "";
+  const origin = req.body?.origin ? String(req.body.origin) : "mini-app";
+
+  if (!userId) {
+    return res.status(400).json({
+      error: "Invalid Telegram user id"
+    });
+  }
+
+  try {
+    const result = await createSupportRequest({
+      userId,
+      user,
+      source: origin,
+      ticket
+    });
+
+    if (result.notifiedCount === 0) {
+      return res.status(503).json({
+        error: "No support recipients configured"
+      });
+    }
+
+    return res.json({
+      ok: true,
+      request: result.thread,
+      notifiedCount: result.notifiedCount
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message || "Failed to create support request"
     });
   }
 });
@@ -632,4 +1154,5 @@ app.get("/{*path}", (req, res, next) => {
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`Pegasus server listening on :${port}`);
+  void startTelegramPolling();
 });

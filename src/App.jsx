@@ -77,241 +77,243 @@ const quickActions = [
 const defaultActivities = [];
 
 const uiText = {
-  ru: {
-    locale: "ru-RU",
-    languageSwitchLabel: "Переключение языка",
+  zh: {
+    locale: "zh-CN",
+    languageSwitchLabel: "语言切换",
     brand: {
       main: "PEGASUS",
       sub: "MARKET AUTOPILOT"
     },
     hero: {
-      closeLabel: "Закрыть блок",
+      closeLabel: "关闭横幅",
       tag: "AI Capital Autopilot",
-      title: "Внеси баланс. PEGASUS сам ищет, читает и ведет сделку.",
+      title: "充值余额。PEGASUS 会扫描、读取并管理交易。",
       description:
-        "Нейросеть отслеживает последние новости, оценивает импульс и включает торговый автопилот без ручной рутины.",
+        "模型会跟踪最新资讯、评估市场动能，并自动执行交易，无需手动操作。",
       tags: ["AI news scan", "autopilot entry", "smart risk exit"]
     },
     quickActions: {
-      deposit: "Пополнить",
-      exchange: "Обменять",
-      reward: "Получить",
-      send: "Отправить"
+      deposit: "充值",
+      exchange: "兑换",
+      reward: "奖励",
+      send: "发送"
     },
     nav: {
-      home: "Главная",
-      earnings: "Доход",
-      rewards: "Награды",
-      news: "Новости"
+      home: "首页",
+      earnings: "收益",
+      rewards: "奖励",
+      news: "新闻"
     },
     modal: {
-      depositTitle: "Пополнить баланс",
-      amountTitle: "Введите сумму в долларах",
-      currencyLabel: "Криптовалюта",
-      walletTitle: "Кошелек для перевода",
-      walletLabel: "Адрес кошелька",
-      networkLabel: "Сеть",
-      amountUsdLabel: "Сумма",
-      amountCryptoLabel: "К переводу",
-      ticketLabel: "Номер транзакции",
+      depositTitle: "充值余额",
+      amountTitle: "输入美元金额",
+      currencyLabel: "加密货币",
+      walletTitle: "转账钱包",
+      walletLabel: "钱包地址",
+      networkLabel: "网络",
+      amountUsdLabel: "金额",
+      amountCryptoLabel: "需转入",
+      ticketLabel: "交易编号",
       notice:
-        "Некоторые транзакции могут не пройти. Если средства не пришли в течение 20 минут, обязательно обратись в техподдержку и передай номер транзакции.",
-      generate: "Сгенерировать кошелек",
-      confirm: "Я перевел средства",
-      support: "Тех. поддержка",
-      cancel: "Отмена",
-      submit: "Пополнить баланс"
+        "部分交易可能失败。如果资金 20 分钟内未到账，请务必联系支持并提供交易编号。",
+      generate: "生成钱包",
+      confirm: "我已转账",
+      support: "联系客服",
+      cancel: "取消",
+      submit: "充值余额"
     },
     exchange: {
-      tag: "Обмен",
-      title: "Выбери актив для графика и обмена",
-      close: "Закрыть"
+      tag: "兑换",
+      title: "选择图表和兑换资产",
+      close: "关闭"
     },
     home: {
-      capitalTag: "Капитал",
-      balanceRunningNote: "PEGASUS уже ведет позицию и пересчитывает доход в live-режиме.",
-      balanceClosedNote: "Сессия закрыта. Можно снова пополнить баланс и запустить AI.",
-      balanceIdleNote: "Внеси баланс, чтобы запустить AI-режим и передать работу алгоритму.",
-      depositButton: "Пополнить баланс",
-      withdrawButton: "Вывести",
-      marketModeLabel: "Режим",
-      marketModeValue: "AI-автопилот",
-      marketTrendLabel: "Тренд рынка",
-      marketTrendValue: "Бычий",
-      marketCoreTag: "Ядро рынка",
-      priceLabel: "Цена",
-      totalTradedLabel: "Общие торги",
-      swapFeeLabel: "Комиссия swap",
-      activityTag: "Активность",
-      activityTitle: "Последние действия",
-      activityEmpty: "Пока нет действий. После пополнения или обмена история появится здесь.",
-      marketFeedTag: "Лента рынка",
-      incomeMini: "Доход",
+      capitalTag: "资金",
+      balanceRunningNote: "PEGASUS 正在管理仓位并实时重算收益。",
+      balanceClosedNote: "本轮已结束。你可以再次充值并启动 AI。",
+      balanceIdleNote: "充值后即可启动 AI 模式并交给引擎执行。",
+      depositButton: "充值余额",
+      withdrawButton: "提现",
+      marketModeLabel: "模式",
+      marketModeValue: "AI 自动驾驶",
+      marketTrendLabel: "市场趋势",
+      marketTrendValue: "看涨",
+      marketCoreTag: "市场核心",
+      priceLabel: "价格",
+      totalTradedLabel: "总交易量",
+      swapFeeLabel: "兑换手续费",
+      activityTag: "活动",
+      activityTitle: "最近记录",
+      activityEmpty: "暂时还没有记录。充值或兑换后，历史会显示在这里。",
+      marketFeedTag: "市场流",
+      incomeMini: "收益",
       syncBadge: "sync",
-      connection: "подключение",
-      rangeLabel: "24ч",
-      supportTag: "Поддержка",
-      supportTitle: "Тех. поддержка",
-      supportCopy: "Если нужна помощь по депозиту, обмену или наградам, поддержка подключит тебя вручную.",
-      supportLink: "Открыть поддержку",
-      newsTag: "Новости",
-      newsTitle: "Что PEGASUS видит сейчас",
-      newsAll: "Все",
-      pinnedLabel: "Закреплено",
-      whyTag: "Почему PEGASUS",
-      whyTitle: "Почему это выглядит как AI-бизнес",
-      legal: "(C) Pegasus GPT - Все права защищены 2025-2026."
+      connection: "连接中",
+      rangeLabel: "24h",
+      supportTag: "支持",
+      supportTitle: "客服支持",
+      supportCopy: "如果你在充值、兑换或奖励方面需要帮助，支持团队会手动接入。",
+      supportLink: "联系支持",
+      newsTag: "新闻",
+      newsTitle: "PEGASUS 当前看到的市场",
+      newsAll: "全部",
+      pinnedLabel: "置顶",
+      whyTag: "为什么选择 PEGASUS",
+      whyTitle: "为什么它像真正的 AI 交易运营",
+      legal: "(C) Pegasus GPT - 版权所有 2025-2026。"
     },
     earnings: {
-      tag: "Доход",
-      title: "Как выглядит доход в live-режиме",
-      engineTag: "Движок",
-      sourceTitle: "На чем PEGASUS забирает процент",
-      shareLabel: "доля бота"
+      tag: "收益",
+      title: "实时收益展示",
+      engineTag: "引擎",
+      sourceTitle: "PEGASUS 从哪里获取利润",
+      shareLabel: "机器人份额"
     },
     rewards: {
-      tag: "Награды",
-      title: "Награды",
-      activate: "Активировать",
-      statusDone: "выполнено",
-      statusProgress: "в процессе"
+      tag: "奖励",
+      title: "奖励",
+      activate: "激活",
+      statusDone: "已完成",
+      statusProgress: "进行中"
     },
     admin: {
       open: "Admin",
-      title: "Заявки на пополнение",
-      refresh: "Обновить",
-      empty: "Сейчас нет ожидающих заявок.",
-      approve: "Подтвердить",
-      approving: "Подтверждение...",
-      pending: "ожидает",
-      amount: "Сумма",
-      user: "Пользователь",
-      created: "Создано"
+      title: "充值申请",
+      refresh: "刷新",
+      empty: "当前没有待处理申请。",
+      approve: "确认",
+      approving: "确认中...",
+      pending: "待处理",
+      amount: "金额",
+      user: "用户",
+      created: "创建时间"
     },
     activityPage: {
-      tag: "Лента действий",
-      title: "Последние действия",
-      back: "Назад"
+      tag: "活动流",
+      title: "最近记录",
+      back: "返回"
     },
     newsPage: {
-      tag: "Лента новостей",
-      title: "Новости по монетам"
+      tag: "新闻流",
+      title: "币种新闻"
     },
     aiStatus: [
-      { label: "Скан новостей", value: "24/7" },
-      { label: "Вход в рынок", value: "AI" },
-      { label: "Выход", value: "AUTO" }
+      { label: "新闻扫描", value: "24/7" },
+      { label: "入场模式", value: "AI" },
+      { label: "离场模式", value: "AUTO" }
     ],
     earningsSources: [
       {
         name: "LYN impulse engine",
         share: "1.8%",
-        note: "PEGASUS входит после подтвержденного ускорения и берет часть движения."
+        note: "PEGASUS 在确认加速后入场，并捕捉其中一部分涨幅。"
       },
       {
         name: "BTC news reaction",
         share: "2.4%",
-        note: "Нейросеть читает новостной фон и заходит на сильной переоценке рынка."
+        note: "模型读取新闻背景，并在市场强烈重定价时入场。"
       },
       {
         name: "ETH volatility range",
         share: "1.5%",
-        note: "Автопилот забирает короткие возвраты и резкие внутридневные колебания."
+        note: "自动驾驶捕捉短线回撤和剧烈日内波动。"
       }
     ],
     rewardPrograms: [
       {
-        title: "Депозит 100$",
-        reward: "+20$",
+        title: "充值 $100",
+        reward: "+$20",
         target: 100,
         type: "deposit",
-        note: "Получишь 20$ в течение 3-х дней после пополнения."
+        note: "充值后 3 天内可获得 $20 奖励。"
       },
       {
-        title: "Депозит 250$",
-        reward: "+55$",
+        title: "充值 $250",
+        reward: "+$55",
         target: 250,
         type: "deposit",
-        note: "Повышенный бонус для второго депозита и ускоренный старт торгового AI."
+        note: "更高等级充值奖励，并加速 AI 启动。"
       },
       {
-        title: "Депозит 500$",
-        reward: "+120$",
+        title: "充值 $500",
+        reward: "+$120",
         target: 500,
         type: "deposit",
-        note: "Открывает усиленный режим ведения позиции и повышенный бонус."
+        note: "解锁更强的仓位管理模式和更高奖励。"
       },
       {
-        title: "Общие торги 2000$",
-        reward: "+20$",
+        title: "总交易量 $2000",
+        reward: "+$20",
         target: 2000,
         type: "trading",
-        note: "Получишь 20$ в течение 3-х дней после достижения объема."
+        note: "达到该交易量后 3 天内可获得 $20。"
       },
       {
-        title: "Общие торги 5000$",
-        reward: "+65$",
+        title: "总交易量 $5000",
+        reward: "+$65",
         target: 5000,
         type: "trading",
-        note: "После достижения объема откроется повышенная награда за активность."
+        note: "达到该交易量后可解锁更高的活跃奖励。"
       },
       {
-        title: "Общие торги 12000$",
-        reward: "+180$",
+        title: "总交易量 $12000",
+        reward: "+$180",
         target: 12000,
         type: "trading",
-        note: "Флагманская награда для активного баланса и длинной AI-сессии."
+        note: "面向高活跃余额与长时 AI 会话的旗舰奖励。"
       }
     ],
     pinnedStory: {
       coin: "PEGASUS x LYN",
-      title: "PEGASUS сделал коллаборацию с LYN. Теперь зарабатывать на AI-валюте стало еще проще.",
-      description: "Новый режим усиливает AI-скан новостей и ускоряет автопилот на монете LYN.",
+      title: "PEGASUS 与 LYN 开启合作，让 AI 币交易变得更简单。",
+      description: "新模式强化 AI 新闻扫描，并加快 LYN 上的自动驾驶节奏。",
       trend: "bullish",
       pinned: true
     },
     marketStatus: {
-      bullish: "Бычий",
-      bearish: "Медвежий"
+      bullish: "看涨",
+      bearish: "看跌"
     },
     alerts: {
       withdrawBeta: (ticket) =>
-        `Запрос на вывод создан. Номер заявки ${ticket}. Передай его в техподдержку и укажи кошелек для получения.`,
+        `提现申请已创建。编号 ${ticket}。请联系支持并提供收款钱包地址。`,
       withdrawNeedVolume: (required, current) =>
-        `Попытка вывода доступна только после общего торгового объема от $${required}. Сейчас: $${current.toFixed(1)}.`,
-      supportBeta: "Тех. поддержка подключится в следующем обновлении.",
+        `提现仅在总交易量达到 $${required} 后开放。当前：$${current.toFixed(1)}。`,
+      supportBeta: "支持请求将在下一次更新中接入。",
       supportTicket: (ticket) =>
-        `Если средства не пришли за 20 минут, обратись в техподдержку и передай номер транзакции ${ticket}.`,
+        `如果资金 20 分钟内未到账，请联系支持并提供交易编号 ${ticket}。`,
+      supportRequestSent: "支持请求已发送。客服会在 Telegram 中联系你。",
+      supportRequestFailed: "无法发送支持请求。",
       depositRequestSent: (ticket) =>
-        `Заявка ${ticket} отправлена админу на проверку. Баланс будет пополнен только после подтверждения.`,
+        `申请 ${ticket} 已发送给管理员审核。余额将在确认后入账。`,
       depositRequestWarning: (ticket) =>
-        `Заявка ${ticket} сохранена, но уведомление в Telegram не отправилось. Проверь TELEGRAM_BOT_TOKEN и TELEGRAM_ADMIN_CHAT_ID.`,
-      depositRequestFailed: "Не удалось отправить заявку на пополнение.",
-      adminLoadFailed: "Не удалось загрузить заявки администратора.",
-      adminApproveDone: (ticket) => `Пополнение ${ticket} подтверждено.`,
-      adminApproveFailed: "Не удалось подтвердить пополнение.",
-      telegramSessionRequired: "Подтверждение депозита доступно только внутри Telegram Mini App.",
-      amountInvalid: "Введите сумму в долларах.",
-      amountMinimum: (min) => `Минимальная сумма пополнения - $${min}.`,
-      sendNeedDeposit: "Сначала нужно пополнить баланс.",
-      sendNeedVolume: "Отправка откроется после общего торгового объема 500$.",
-      sendNeedBalance: "Недостаточно средств для отправки.",
-      sendDone: "Отправка выполнена.",
-      exchangeCurrent: (asset) => `Сейчас уже выбран ${asset}.`,
+        `申请 ${ticket} 已保存，但 Telegram 通知未发送。请检查 TELEGRAM_BOT_TOKEN 和 TELEGRAM_ADMIN_CHAT_ID。`,
+      depositRequestFailed: "无法提交充值申请。",
+      adminLoadFailed: "无法加载管理员申请。",
+      adminApproveDone: (ticket) => `充值 ${ticket} 已确认。`,
+      adminApproveFailed: "无法确认该充值申请。",
+      telegramSessionRequired: "该操作仅可在 Telegram Mini App 内使用。",
+      amountInvalid: "请输入美元金额。",
+      amountMinimum: (min) => `最低充值金额为 $${min}。`,
+      sendNeedDeposit: "请先充值余额。",
+      sendNeedVolume: "发送功能将在总交易量达到 $500 后开放。",
+      sendNeedBalance: "余额不足，无法发送。",
+      sendDone: "发送完成。",
+      exchangeCurrent: (asset) => `当前已选择 ${asset}。`,
       exchangeChanged: (from, to, fee) =>
-        `Актив переключен: ${from} -> ${to}${fee > 0 ? `, комиссия $${fee.toFixed(2)}` : ""}.`
+        `资产已切换：${from} -> ${to}${fee > 0 ? `，手续费 $${fee.toFixed(2)}` : ""}。`
     },
     activity: {
-      depositTitle: "Пополнено",
-      depositNote: "Баланс пополнен. AI-сессия запущена.",
-      depositPendingTitle: "Заявка на депозит",
-      depositPendingNote: "Платеж отправлен на ручную проверку администратора.",
-      exchangeTitle: "Обменено",
-      exchangeNote: (from, to) => `${from} -> ${to}, удержана комиссия за обмен.`,
-      modeTitle: "Режим рынка",
-      modeNote: (from, to) => `График переключен с ${from} на ${to}.`,
-      sendTitle: "Отправлено",
-      sendNote: "Перевод из торгового баланса после открытия лимита по объему."
+      depositTitle: "已充值",
+      depositNote: "余额已充值，AI 会话已启动。",
+      depositPendingTitle: "充值申请",
+      depositPendingNote: "支付已发送，等待管理员人工审核。",
+      exchangeTitle: "已兑换",
+      exchangeNote: (from, to) => `${from} -> ${to}，已扣除兑换手续费。`,
+      modeTitle: "市场模式",
+      modeNote: (from, to) => `图表已从 ${from} 切换到 ${to}。`,
+      sendTitle: "已发送",
+      sendNote: "在交易量解锁后，从交易余额中发起转账。"
     }
   },
   en: {
@@ -519,6 +521,8 @@ const uiText = {
       supportBeta: "Support will connect in the next update.",
       supportTicket: (ticket) =>
         `If funds do not arrive within 20 minutes, contact support and provide transaction number ${ticket}.`,
+      supportRequestSent: "Support request sent. The operator will contact you in Telegram.",
+      supportRequestFailed: "Failed to send the support request.",
       depositRequestSent: (ticket) =>
         `Request ${ticket} was sent to the admin for review. Balance will be credited only after approval.`,
       depositRequestWarning: (ticket) =>
@@ -555,14 +559,14 @@ const uiText = {
 
 const getInitialLanguage = () => {
   if (typeof window === "undefined") {
-    return "ru";
+    return "en";
   }
 
   const saved = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
-  return saved === "en" ? "en" : "ru";
+  return saved === "zh" ? "zh" : "en";
 };
 
-const isBearishTrend = (trend) => /bear|медвеж/i.test(String(trend || ""));
+const isBearishTrend = (trend) => /bear|down|跌|空/i.test(String(trend || ""));
 
 const localizeTrend = (trend, copy) =>
   isBearishTrend(trend) ? copy.marketStatus.bearish : copy.marketStatus.bullish;
@@ -850,8 +854,8 @@ function App() {
 
   useEffect(() => {
     if (typeof document !== "undefined") {
-      document.documentElement.lang = language;
-      document.title = language === "ru" ? "PEGASUS | AI-автопилот рынка" : "PEGASUS | AI market autopilot";
+      document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
+      document.title = language === "zh" ? "PEGASUS | AI 市场自动驾驶" : "PEGASUS | AI market autopilot";
     }
 
     if (typeof window !== "undefined") {
@@ -1348,8 +1352,37 @@ function App() {
     showBetaAlert(copy.alerts.exchangeChanged(currentAssetMeta.short, nextMeta.short, fee));
   };
 
-  const openSupport = (ticket = null) => {
-    showBetaAlert(ticket ? copy.alerts.supportTicket(ticket) : copy.alerts.supportBeta);
+  const openSupport = async (ticket = null) => {
+    if (!telegramUser?.id) {
+      showBetaAlert(copy.alerts.telegramSessionRequired);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/support/request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          userId: telegramUser.id,
+          user: telegramUser,
+          ticket,
+          origin: ticket ? "deposit" : "mini-app"
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to create support request");
+      }
+
+      showBetaAlert(
+        ticket ? `${copy.alerts.supportRequestSent}\n\n${copy.alerts.supportTicket(ticket)}` : copy.alerts.supportRequestSent
+      );
+    } catch {
+      showBetaAlert(copy.alerts.supportRequestFailed);
+    }
   };
 
   const loadAdminDeposits = async (options = {}) => {
@@ -1762,7 +1795,11 @@ function App() {
               data-busy={pendingHomeAction === "support-open" ? "true" : undefined}
               aria-busy={pendingHomeAction === "support-open"}
               disabled={Boolean(pendingHomeAction)}
-              onClick={() => runHomeAction("support-open", openSupport)}
+              onClick={() =>
+                runHomeAction("support-open", () => {
+                  void openSupport();
+                })
+              }
             >
               {copy.home.supportLink}
             </button>
@@ -1989,20 +2026,20 @@ function App() {
           )}
           <div className="language-switch" role="group" aria-label={copy.languageSwitchLabel}>
             <button
-              className={language === "ru" ? "language-button active" : "language-button"}
-              type="button"
-              aria-pressed={language === "ru"}
-              onClick={() => setLanguage("ru")}
-            >
-              RU
-            </button>
-            <button
               className={language === "en" ? "language-button active" : "language-button"}
               type="button"
               aria-pressed={language === "en"}
               onClick={() => setLanguage("en")}
             >
               EN
+            </button>
+            <button
+              className={language === "zh" ? "language-button active" : "language-button"}
+              type="button"
+              aria-pressed={language === "zh"}
+              onClick={() => setLanguage("zh")}
+            >
+              ZH
             </button>
           </div>
         </div>
@@ -2130,7 +2167,9 @@ function App() {
                         className="ghost-link support-link"
                         type="button"
                         disabled={isDepositConfirming}
-                        onClick={() => openSupport(generatedDeposit.ticket)}
+                        onClick={() => {
+                          void openSupport(generatedDeposit.ticket);
+                        }}
                       >
                         {copy.modal.support}
                       </button>
