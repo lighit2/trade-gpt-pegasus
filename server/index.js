@@ -183,14 +183,25 @@ function sanitizeUserState(state = {}) {
   const activityFeed = Array.isArray(state.activityFeed)
     ? state.activityFeed.map(sanitizeActivityItem).filter(Boolean).slice(0, 12)
     : [];
+  const demoAmount = Number(state.demoAmount) || 0;
+  const demoProfit = Number(state.demoProfit) || 0;
+  const totalTraded = Number(state.totalTraded) || 0;
+  const legacyRunning =
+    demoAmount > 0 &&
+    demoProfit === 0 &&
+    totalTraded === 0 &&
+    activityFeed.some((item) => item.type === "deposit");
 
   return {
     currentAsset: validAssets.has(state.currentAsset) ? state.currentAsset : "lyn",
-    demoAmount: Number(state.demoAmount) || 0,
-    demoProfit: Number(state.demoProfit) || 0,
+    demoAmount,
+    demoProfit,
     demoPercent: Number(state.demoPercent) || 0,
     totalDeposited: Number(state.totalDeposited) || 0,
-    totalTraded: Number(state.totalTraded) || 0,
+    totalTraded,
+    isDemoRunning: Boolean(state.isDemoRunning) || legacyRunning,
+    simulationEpoch: Number(state.simulationEpoch) || 0,
+    simulationTicks: Math.max(0, Number(state.simulationTicks) || 0),
     isHeroVisible: state.isHeroVisible !== false,
     activityFeed,
     updatedAt: Date.now()
@@ -224,6 +235,12 @@ function mergeUserState(existingState = {}, incomingState = {}) {
   const mergedDemoProfit = Number(incoming.demoProfit || existing.demoProfit || 0);
   const mergedDemoPercent =
     mergedDemoAmount > 0 ? Number(((mergedDemoProfit / mergedDemoAmount) * 100).toFixed(2)) : 0;
+  const mergedSimulationEpoch =
+    incoming.simulationEpoch >= existing.simulationEpoch ? incoming.simulationEpoch : existing.simulationEpoch;
+  const mergedSimulationTicks =
+    incoming.simulationEpoch >= existing.simulationEpoch ? incoming.simulationTicks : existing.simulationTicks;
+  const mergedIsDemoRunning =
+    incoming.simulationEpoch >= existing.simulationEpoch ? incoming.isDemoRunning : existing.isDemoRunning;
 
   return sanitizeUserState({
     currentAsset: incoming.currentAsset,
@@ -232,6 +249,9 @@ function mergeUserState(existingState = {}, incomingState = {}) {
     demoPercent: mergedDemoPercent,
     totalDeposited: mergedTotalDeposited,
     totalTraded: mergedTotalTraded,
+    isDemoRunning: mergedIsDemoRunning,
+    simulationEpoch: mergedSimulationEpoch,
+    simulationTicks: mergedSimulationTicks,
     isHeroVisible: incoming.isHeroVisible,
     activityFeed: mergeActivityFeed(existing.activityFeed, incoming.activityFeed)
   });
@@ -1062,6 +1082,7 @@ app.post("/api/admin/deposits/approve", async (req, res) => {
     const nextDemoAmount = Number((currentState.demoAmount + amount).toFixed(2));
     const nextTotalDeposited = Number((currentState.totalDeposited + amount).toFixed(2));
     const nextDemoPercent = nextDemoAmount > 0 ? Number(((currentState.demoProfit / nextDemoAmount) * 100).toFixed(2)) : 0;
+    const nextSimulationEpoch = Date.now();
     const nextActivityFeed = [
       {
         type: "deposit",
@@ -1069,7 +1090,7 @@ app.post("/api/admin/deposits/approve", async (req, res) => {
         asset: request.symbol,
         timestamp: Date.now()
       },
-      ...(currentState.activityFeed || [])
+      ...(currentState.activityFeed || []).filter((item) => item.type !== "deposit-pending")
     ].slice(0, 12);
 
     userStore[request.userId] = sanitizeUserState({
@@ -1079,6 +1100,9 @@ app.post("/api/admin/deposits/approve", async (req, res) => {
       demoPercent: nextDemoPercent,
       totalDeposited: nextTotalDeposited,
       totalTraded: currentState.totalTraded,
+      isDemoRunning: true,
+      simulationEpoch: nextSimulationEpoch,
+      simulationTicks: 0,
       isHeroVisible: currentState.isHeroVisible,
       activityFeed: nextActivityFeed
     });

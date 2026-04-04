@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import pegasusMark from "./assets/pegasus-mark.svg";
 
 const LANGUAGE_STORAGE_KEY = "pegas-language";
@@ -10,6 +10,8 @@ const HERO_DISMISS_MS = 420;
 const HOME_ACTION_DELAY_MS = 220;
 const WITHDRAW_UNLOCK_VOLUME = 500;
 const DEPOSIT_GENERATION_DELAY_MS = 520;
+const SIMULATION_STEP_MS = 5000;
+const SIMULATION_MAX_STEPS = 24;
 
 const depositAssetMeta = {
   BTC: {
@@ -612,6 +614,8 @@ function App() {
   const [totalDeposited, setTotalDeposited] = useState(0);
   const [totalTraded, setTotalTraded] = useState(0);
   const [isDemoRunning, setDemoRunning] = useState(false);
+  const [simulationEpoch, setSimulationEpoch] = useState(0);
+  const [simulationTicks, setSimulationTicks] = useState(0);
   const [marketData, setMarketData] = useState(null);
   const [latestNews, setLatestNews] = useState([]);
   const [activityFeed, setActivityFeed] = useState(defaultActivities);
@@ -634,6 +638,12 @@ function App() {
   const tabTransitionRef = useRef(null);
   const actionDelayRef = useRef(null);
   const depositGenerationRef = useRef(null);
+  const simulationStateRef = useRef({
+    demoAmount: 0,
+    demoPercent: 0,
+    simulationTicks: 0,
+    isDemoRunning: false
+  });
 
   const copy = uiText[language];
   const currentAssetMeta = assetMeta[currentAsset];
@@ -642,6 +652,7 @@ function App() {
   const featuredNews = newsFeed.slice(0, 2);
   const activityPreview = activityFeed.slice(0, 2);
   const hasMoreActivities = activityFeed.length > 2;
+  const hasPendingDeposit = activityFeed.some((item) => item.type === "deposit-pending");
   const rewardPrograms = copy.rewardPrograms;
   const pendingAdminCount = pendingDeposits.length;
   const persistedAppState = useMemo(
@@ -652,10 +663,25 @@ function App() {
       demoPercent,
       totalDeposited,
       totalTraded,
+      isDemoRunning,
+      simulationEpoch,
+      simulationTicks,
       isHeroVisible,
       activityFeed
     }),
-    [activityFeed, currentAsset, demoAmount, demoPercent, demoProfit, isHeroVisible, totalDeposited, totalTraded]
+    [
+      activityFeed,
+      currentAsset,
+      demoAmount,
+      demoPercent,
+      demoProfit,
+      isDemoRunning,
+      isHeroVisible,
+      simulationEpoch,
+      simulationTicks,
+      totalDeposited,
+      totalTraded
+    ]
   );
   const candleSeries = useMemo(() => {
     if (!marketData?.ohlc?.length) {
@@ -830,6 +856,39 @@ function App() {
       );
     });
 
+  const applyPersistedState = useCallback((state) => {
+    if (!state) {
+      return;
+    }
+
+    const nextDemoAmount = Number(state.demoAmount) || 0;
+    const nextDemoProfit = Number(state.demoProfit) || 0;
+    const nextDemoPercent = Number(state.demoPercent) || 0;
+    const nextTotalDeposited = Number(state.totalDeposited) || 0;
+    const nextTotalTraded = Number(state.totalTraded) || 0;
+    const nextSimulationEpoch = Number(state.simulationEpoch) || 0;
+    const nextSimulationTicks = Math.max(0, Number(state.simulationTicks) || 0);
+    const legacyResume =
+      nextDemoAmount > 0 &&
+      nextDemoProfit === 0 &&
+      nextTotalTraded === 0 &&
+      Array.isArray(state.activityFeed) &&
+      state.activityFeed.some((item) => item?.type === "deposit");
+    const nextDemoRunning = Boolean(state.isDemoRunning) || legacyResume;
+
+    setCurrentAsset(assetMeta[state.currentAsset] ? state.currentAsset : "lyn");
+    setDemoAmount(nextDemoAmount);
+    setDemoProfit(nextDemoProfit);
+    setDemoPercent(nextDemoPercent);
+    setTotalDeposited(nextTotalDeposited);
+    setTotalTraded(nextTotalTraded);
+    setSimulationEpoch(nextSimulationEpoch || (legacyResume ? Date.now() : 0));
+    setSimulationTicks(nextSimulationTicks);
+    setHeroVisible(state.isHeroVisible !== false);
+    setActivityFeed(Array.isArray(state.activityFeed) ? state.activityFeed : defaultActivities);
+    setDemoRunning(nextDemoRunning && nextDemoAmount > 0);
+  }, []);
+
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
 
@@ -883,22 +942,6 @@ function App() {
 
     let cancelled = false;
 
-    const applyPersistedState = (state) => {
-      if (!state || cancelled) {
-        return;
-      }
-
-      setCurrentAsset(assetMeta[state.currentAsset] ? state.currentAsset : "lyn");
-      setDemoAmount(Number(state.demoAmount) || 0);
-      setDemoProfit(Number(state.demoProfit) || 0);
-      setDemoPercent(Number(state.demoPercent) || 0);
-      setTotalDeposited(Number(state.totalDeposited) || 0);
-      setTotalTraded(Number(state.totalTraded) || 0);
-      setHeroVisible(state.isHeroVisible !== false);
-      setActivityFeed(Array.isArray(state.activityFeed) ? state.activityFeed : defaultActivities);
-      setDemoRunning(false);
-    };
-
     const loadPersistedState = async () => {
       setStateHydrated(false);
 
@@ -915,7 +958,9 @@ function App() {
       }
 
       if (!telegramUser?.id) {
-        applyPersistedState(fallbackState);
+        if (!cancelled) {
+          applyPersistedState(fallbackState);
+        }
         if (!cancelled) {
           setStateHydrated(true);
         }
@@ -929,10 +974,14 @@ function App() {
         if (!cancelled && response.ok && payload.state) {
           applyPersistedState(payload.state);
         } else {
-          applyPersistedState(fallbackState);
+          if (!cancelled) {
+            applyPersistedState(fallbackState);
+          }
         }
       } catch {
-        applyPersistedState(fallbackState);
+        if (!cancelled) {
+          applyPersistedState(fallbackState);
+        }
       } finally {
         if (!cancelled) {
           setStateHydrated(true);
@@ -1028,6 +1077,100 @@ function App() {
       controller.abort();
     };
   }, [isStateHydrated, persistedAppState, telegramUser?.id]);
+
+  useEffect(() => {
+    simulationStateRef.current = {
+      demoAmount,
+      demoPercent,
+      simulationTicks,
+      isDemoRunning
+    };
+  }, [demoAmount, demoPercent, isDemoRunning, simulationTicks]);
+
+  useEffect(() => {
+    if (!telegramUser?.id || !isStateHydrated || !hasPendingDeposit || isDemoRunning) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const syncApprovedDeposit = async () => {
+      try {
+        const response = await fetch(`/api/app-state/${telegramUser.id}`);
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok || !payload.state || cancelled) {
+          return;
+        }
+
+        const nextState = payload.state;
+        const hasApprovalUpdate =
+          (Number(nextState.totalDeposited) || 0) > totalDeposited ||
+          (Number(nextState.simulationEpoch) || 0) > simulationEpoch ||
+          (Boolean(nextState.isDemoRunning) && !isDemoRunning);
+
+        if (hasApprovalUpdate) {
+          applyPersistedState(nextState);
+        }
+      } catch {
+        return;
+      }
+    };
+
+    syncApprovedDeposit();
+    const timer = window.setInterval(syncApprovedDeposit, 7000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [applyPersistedState, hasPendingDeposit, isDemoRunning, isStateHydrated, simulationEpoch, telegramUser?.id, totalDeposited]);
+
+  useEffect(() => {
+    if (!isDemoRunning || demoAmount <= 0) {
+      if (simulationRef.current) {
+        window.clearInterval(simulationRef.current);
+        simulationRef.current = null;
+      }
+      return;
+    }
+
+    if (simulationRef.current) {
+      window.clearInterval(simulationRef.current);
+    }
+
+    simulationRef.current = window.setInterval(() => {
+      const snapshot = simulationStateRef.current;
+
+      if (!snapshot.isDemoRunning || snapshot.demoAmount <= 0) {
+        return;
+      }
+
+      const delta = Math.random() * 1.8 - 0.7;
+      const nextPercent = Math.max(-1.5, Math.min(10, Number((snapshot.demoPercent + delta).toFixed(2))));
+      const nextProfit = Number(((snapshot.demoAmount * nextPercent) / 100).toFixed(2));
+      const tradeDelta = Number((0.1 + Math.random() * 0.1).toFixed(1));
+      const nextTick = snapshot.simulationTicks + 1;
+
+      setDemoPercent(nextPercent);
+      setDemoProfit(nextProfit);
+      setSimulationTicks(nextTick);
+      setTotalTraded((current) => Number((current + tradeDelta).toFixed(1)));
+
+      if (nextTick >= SIMULATION_MAX_STEPS || nextPercent >= 10) {
+        window.clearInterval(simulationRef.current);
+        simulationRef.current = null;
+        setDemoRunning(false);
+      }
+    }, SIMULATION_STEP_MS);
+
+    return () => {
+      if (simulationRef.current) {
+        window.clearInterval(simulationRef.current);
+        simulationRef.current = null;
+      }
+    };
+  }, [demoAmount, isDemoRunning, simulationEpoch]);
 
   useEffect(() => {
     return () => {
@@ -1186,16 +1329,14 @@ function App() {
       return;
     }
 
-    if (simulationRef.current) {
-      window.clearInterval(simulationRef.current);
-    }
-
     const nextAmount = Number((demoAmount + amount).toFixed(2));
     const nextPercent = nextAmount > 0 ? Number(((demoProfit / nextAmount) * 100).toFixed(2)) : 0;
 
     setDemoAmount(nextAmount);
     setDemoPercent(nextPercent);
     setTotalDeposited((current) => Number((current + amount).toFixed(2)));
+    setSimulationEpoch(Date.now());
+    setSimulationTicks(0);
     setDemoRunning(true);
     closeDepositModal();
 
@@ -1205,27 +1346,6 @@ function App() {
       asset: depositedAsset,
       timestamp: Date.now()
     });
-
-    let step = 0;
-    let percent = nextPercent;
-
-    simulationRef.current = window.setInterval(() => {
-      step += 1;
-      const delta = Math.random() * 1.8 - 0.7;
-      percent = Math.max(-1.5, Math.min(10, Number((percent + delta).toFixed(2))));
-      const profit = Number(((nextAmount * percent) / 100).toFixed(2));
-      const tradeDelta = Number((0.1 + Math.random() * 0.1).toFixed(1));
-
-      setDemoPercent(percent);
-      setDemoProfit(profit);
-      setTotalTraded((current) => Number((current + tradeDelta).toFixed(1)));
-
-      if (step >= 24 || percent >= 10) {
-        window.clearInterval(simulationRef.current);
-        simulationRef.current = null;
-        setDemoRunning(false);
-      }
-    }, 5000);
   };
 
   const dismissHero = () => {
