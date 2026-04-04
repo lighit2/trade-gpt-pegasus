@@ -301,6 +301,7 @@ button:disabled {
 .secondary-button,
 .bottom-button,
 .language-button,
+.currency-select,
 .amount-input {
   color: var(--text);
   background: linear-gradient(180deg, rgba(20, 18, 32, 0.48), rgba(7, 12, 14, 0.22));
@@ -1342,6 +1343,25 @@ button:disabled {
   margin-top: 12px;
 }
 
+.deposit-flow {
+  display: grid;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.field-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.field-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .amount-prefix {
   position: absolute;
   left: 14px;
@@ -1351,12 +1371,86 @@ button:disabled {
   font-weight: 800;
 }
 
+.currency-select,
 .amount-input {
   width: 100%;
   min-height: 46px;
-  padding: 0 14px 0 34px;
-  border-radius: 14px;
+  appearance: none;
+  -webkit-appearance: none;
   outline: none;
+}
+
+.currency-select {
+  padding: 0 14px;
+}
+
+.amount-input {
+  padding: 0 14px 0 34px;
+}
+
+.currency-select,
+.amount-input,
+.hash-display {
+  border-radius: 14px;
+}
+
+.deposit-details {
+  display: grid;
+  gap: 8px;
+}
+
+.deposit-details-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(20, 16, 34, 0.6), rgba(6, 10, 12, 0.26)),
+    radial-gradient(circle at top left, rgba(138, 101, 255, 0.14), transparent 44%);
+}
+
+.detail-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.detail-row strong {
+  color: var(--text);
+  text-align: right;
+}
+
+.hash-display {
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background:
+    linear-gradient(180deg, rgba(11, 12, 21, 0.86), rgba(7, 10, 15, 0.84)),
+    radial-gradient(circle at top left, rgba(138, 101, 255, 0.12), transparent 48%);
+  color: #f4efff;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  word-break: break-all;
+}
+
+.deposit-warning {
+  margin: 0;
+  color: #ffd99b;
+}
+
+.deposit-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .wallet-buttons {
@@ -1619,7 +1713,8 @@ button:disabled {
   .card-head,
   .chart-head,
   .activity-head,
-  .reward-head {
+  .reward-head,
+  .detail-row {
     flex-direction: column;
     align-items: stretch;
   }

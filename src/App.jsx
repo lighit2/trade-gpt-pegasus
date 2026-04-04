@@ -8,6 +8,40 @@ const EXCHANGE_FEE_RATE = 0.006;
 const MIN_DEPOSIT_AMOUNT = 20;
 const HERO_DISMISS_MS = 420;
 const HOME_ACTION_DELAY_MS = 220;
+const WITHDRAW_UNLOCK_VOLUME = 500;
+
+const depositAssetMeta = {
+  BTC: {
+    name: "Bitcoin",
+    network: "BTC",
+    usdPrice: 43210,
+    decimals: 6
+  },
+  ETH: {
+    name: "Ethereum",
+    network: "ERC-20",
+    usdPrice: 2280,
+    decimals: 5
+  },
+  USDT: {
+    name: "Tether",
+    network: "TRC-20",
+    usdPrice: 1,
+    decimals: 2
+  },
+  DOGE: {
+    name: "Dogecoin",
+    network: "DOGE",
+    usdPrice: 0.082,
+    decimals: 2
+  },
+  SOL: {
+    name: "Solana",
+    network: "SOL",
+    usdPrice: 145,
+    decimals: 4
+  }
+};
 
 const assetMeta = {
   lyn: {
@@ -67,6 +101,19 @@ const uiText = {
     modal: {
       depositTitle: "Пополнить баланс",
       amountTitle: "Введите сумму в долларах",
+      currencyLabel: "Криптовалюта",
+      walletTitle: "Кошелек для перевода",
+      walletLabel: "Адрес кошелька",
+      networkLabel: "Сеть",
+      amountUsdLabel: "Сумма",
+      amountCryptoLabel: "К переводу",
+      ticketLabel: "Номер транзакции",
+      notice:
+        "Некоторые транзакции могут не пройти. Если средства не пришли в течение 20 минут, обязательно обратись в техподдержку и передай номер транзакции.",
+      generate: "Сгенерировать кошелек",
+      confirm: "Я перевел средства",
+      regenerate: "Сгенерировать заново",
+      support: "Тех. поддержка",
       cancel: "Отмена",
       submit: "Пополнить баланс"
     },
@@ -211,8 +258,13 @@ const uiText = {
       bearish: "Медвежий"
     },
     alerts: {
-      withdrawBeta: "Вывод пока в бете.",
+      withdrawBeta: (ticket) =>
+        `Запрос на вывод создан. Номер заявки ${ticket}. Передай его в техподдержку и укажи кошелек для получения.`,
+      withdrawNeedVolume: (required, current) =>
+        `Попытка вывода доступна только после общего торгового объема от $${required}. Сейчас: $${current.toFixed(1)}.`,
       supportBeta: "Тех. поддержка подключится в следующем обновлении.",
+      supportTicket: (ticket) =>
+        `Если средства не пришли за 20 минут, обратись в техподдержку и передай номер транзакции ${ticket}.`,
       amountInvalid: "Введите сумму в долларах.",
       amountMinimum: (min) => `Минимальная сумма пополнения - $${min}.`,
       sendNeedDeposit: "Сначала нужно пополнить баланс.",
@@ -264,6 +316,19 @@ const uiText = {
     modal: {
       depositTitle: "Fund balance",
       amountTitle: "Enter amount in USD",
+      currencyLabel: "Cryptocurrency",
+      walletTitle: "Transfer wallet",
+      walletLabel: "Wallet address",
+      networkLabel: "Network",
+      amountUsdLabel: "Amount",
+      amountCryptoLabel: "Send",
+      ticketLabel: "Transaction number",
+      notice:
+        "Some transactions may fail. If funds do not arrive within 20 minutes, contact support and provide the transaction number.",
+      generate: "Generate wallet",
+      confirm: "I sent the funds",
+      regenerate: "Generate again",
+      support: "Support",
       cancel: "Cancel",
       submit: "Fund balance"
     },
@@ -408,8 +473,13 @@ const uiText = {
       bearish: "Bearish"
     },
     alerts: {
-      withdrawBeta: "Withdrawals are still in beta.",
+      withdrawBeta: (ticket) =>
+        `Withdrawal request created. Ticket ${ticket}. Send it to support and include the wallet for payout.`,
+      withdrawNeedVolume: (required, current) =>
+        `Withdrawal attempts unlock only after total bot trading reaches $${required}. Current volume: $${current.toFixed(1)}.`,
       supportBeta: "Support will connect in the next update.",
+      supportTicket: (ticket) =>
+        `If funds do not arrive within 20 minutes, contact support and provide transaction number ${ticket}.`,
       amountInvalid: "Enter an amount in USD.",
       amountMinimum: (min) => `Minimum funding amount is $${min}.`,
       sendNeedDeposit: "You need to fund the balance first.",
@@ -447,6 +517,32 @@ const isBearishTrend = (trend) => /bear|медвеж/i.test(String(trend || ""))
 const localizeTrend = (trend, copy) =>
   isBearishTrend(trend) ? copy.marketStatus.bearish : copy.marketStatus.bullish;
 
+const randomFromCharset = (length, charset) =>
+  Array.from({ length }, () => charset[Math.floor(Math.random() * charset.length)]).join("");
+
+const createReferenceNumber = (prefix) =>
+  `${prefix}-${Date.now().toString(36).toUpperCase()}-${randomFromCharset(6, "ABCDEFGHJKLMNPQRSTUVWXYZ23456789")}`;
+
+const createDepositAddress = (symbol) => {
+  if (symbol === "BTC") {
+    return `bc1q${randomFromCharset(26, "acdefghjklmnpqrstuvwxyz023456789")}`;
+  }
+
+  if (symbol === "ETH") {
+    return `0x${randomFromCharset(40, "abcdef0123456789")}`;
+  }
+
+  if (symbol === "USDT") {
+    return `T${randomFromCharset(33, "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")}`;
+  }
+
+  if (symbol === "DOGE") {
+    return `D${randomFromCharset(33, "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")}`;
+  }
+
+  return randomFromCharset(44, "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz");
+};
+
 function App() {
   const [tab, setTab] = useState("home");
   const [language, setLanguage] = useState(getInitialLanguage);
@@ -454,6 +550,8 @@ function App() {
   const [isDepositOpen, setDepositOpen] = useState(false);
   const [isExchangeOpen, setExchangeOpen] = useState(false);
   const [depositInput, setDepositInput] = useState("20");
+  const [depositCurrency, setDepositCurrency] = useState("USDT");
+  const [generatedDeposit, setGeneratedDeposit] = useState(null);
   const [demoAmount, setDemoAmount] = useState(0);
   const [demoProfit, setDemoProfit] = useState(0);
   const [demoPercent, setDemoPercent] = useState(0);
@@ -537,6 +635,12 @@ function App() {
     const absValue = Math.abs(value);
     return `${value >= 0 ? "+" : "-"}$${absValue.toFixed(2)}`;
   };
+
+  const formatMoney = (value) =>
+    `$${value.toLocaleString(copy.locale, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })}`;
 
   const formatSignedPercent = (value) => {
     const absValue = Math.abs(value);
@@ -765,7 +869,17 @@ function App() {
   };
 
   const showBetaWithdraw = () => {
-    showBetaAlert(copy.alerts.withdrawBeta);
+    if (totalTraded < WITHDRAW_UNLOCK_VOLUME) {
+      showBetaAlert(copy.alerts.withdrawNeedVolume(WITHDRAW_UNLOCK_VOLUME, totalTraded));
+      return;
+    }
+
+    showBetaAlert(copy.alerts.withdrawBeta(createReferenceNumber("WD")));
+  };
+
+  const closeDepositModal = () => {
+    setDepositOpen(false);
+    setGeneratedDeposit(null);
   };
 
   const runHomeAction = (actionId, callback) => {
@@ -785,8 +899,8 @@ function App() {
     setActivityFeed((current) => [entry, ...current].slice(0, 8));
   };
 
-  const startDemoSimulation = () => {
-    const amount = Number.parseFloat(depositInput);
+  const startDemoSimulation = (amountOverride = null, depositedAsset = "USD") => {
+    const amount = Number.parseFloat(amountOverride ?? depositInput);
 
     if (!Number.isFinite(amount) || amount <= 0) {
       showBetaAlert(copy.alerts.amountInvalid);
@@ -809,12 +923,12 @@ function App() {
     setDemoPercent(nextPercent);
     setTotalDeposited((current) => Number((current + amount).toFixed(2)));
     setDemoRunning(true);
-    setDepositOpen(false);
+    closeDepositModal();
 
     pushActivity({
       type: "deposit",
       amount: `+$${amount.toFixed(2)}`,
-      asset: "USD",
+      asset: depositedAsset,
       timestamp: Date.now()
     });
 
@@ -964,8 +1078,36 @@ function App() {
     showBetaAlert(copy.alerts.exchangeChanged(currentAssetMeta.short, nextMeta.short, fee));
   };
 
-  const openSupport = () => {
-    showBetaAlert(copy.alerts.supportBeta);
+  const openSupport = (ticket = null) => {
+    showBetaAlert(ticket ? copy.alerts.supportTicket(ticket) : copy.alerts.supportBeta);
+  };
+
+  const generateDepositRequest = () => {
+    const amount = Number.parseFloat(depositInput);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      showBetaAlert(copy.alerts.amountInvalid);
+      return;
+    }
+
+    if (amount < MIN_DEPOSIT_AMOUNT) {
+      showBetaAlert(copy.alerts.amountMinimum(MIN_DEPOSIT_AMOUNT));
+      return;
+    }
+
+    const asset = depositAssetMeta[depositCurrency];
+    const cryptoAmount = Number((amount / asset.usdPrice).toFixed(asset.decimals));
+
+    setGeneratedDeposit({
+      symbol: depositCurrency,
+      name: asset.name,
+      network: asset.network,
+      amountUsd: amount,
+      cryptoAmount,
+      decimals: asset.decimals,
+      wallet: createDepositAddress(depositCurrency),
+      ticket: createReferenceNumber("PG")
+    });
   };
 
   const getRewardProgress = (program) =>
@@ -1493,26 +1635,117 @@ function App() {
       </nav>
 
       {isDepositOpen && (
-        <div className="modal-backdrop" onClick={() => setDepositOpen(false)} role="presentation">
+        <div className="modal-backdrop" onClick={closeDepositModal} role="presentation">
           <div className="deposit-modal panel" onClick={(event) => event.stopPropagation()} role="dialog">
             <p className="section-tag">{copy.modal.depositTitle}</p>
             <h3>{copy.modal.amountTitle}</h3>
-            <div className="amount-wrap">
-              <span className="amount-prefix">$</span>
-              <input
-                className="amount-input"
-                type="number"
-                min={MIN_DEPOSIT_AMOUNT}
-                step="1"
-                value={depositInput}
-                onChange={(event) => setDepositInput(event.target.value)}
-              />
+            <div className="deposit-flow">
+              <div className="field-stack">
+                <label className="field-label" htmlFor="deposit-currency">
+                  {copy.modal.currencyLabel}
+                </label>
+                <select
+                  id="deposit-currency"
+                  className="currency-select"
+                  value={depositCurrency}
+                  onChange={(event) => {
+                    setDepositCurrency(event.target.value);
+                    setGeneratedDeposit(null);
+                  }}
+                >
+                  {Object.entries(depositAssetMeta).map(([symbol, asset]) => (
+                    <option key={symbol} value={symbol}>
+                      {asset.name} ({symbol})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="field-stack">
+                <label className="field-label" htmlFor="deposit-amount">
+                  {copy.modal.amountUsdLabel}
+                </label>
+                <div className="amount-wrap">
+                  <span className="amount-prefix">$</span>
+                  <input
+                    id="deposit-amount"
+                    className="amount-input"
+                    type="number"
+                    min={MIN_DEPOSIT_AMOUNT}
+                    step="1"
+                    value={depositInput}
+                    onChange={(event) => {
+                      setDepositInput(event.target.value);
+                      setGeneratedDeposit(null);
+                    }}
+                  />
+                </div>
+              </div>
+
+              {generatedDeposit && (
+                <div className="deposit-details">
+                  <p className="section-tag">{copy.modal.walletTitle}</p>
+                  <div className="deposit-details-card">
+                    <div className="detail-grid">
+                      <div className="detail-row">
+                        <span>{copy.modal.currencyLabel}</span>
+                        <strong>{`${generatedDeposit.name} (${generatedDeposit.symbol})`}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>{copy.modal.networkLabel}</span>
+                        <strong>{generatedDeposit.network}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>{copy.modal.amountCryptoLabel}</span>
+                        <strong>{`${generatedDeposit.cryptoAmount.toFixed(generatedDeposit.decimals)} ${generatedDeposit.symbol}`}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>{copy.modal.amountUsdLabel}</span>
+                        <strong>{formatMoney(generatedDeposit.amountUsd)}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>{copy.modal.ticketLabel}</span>
+                        <strong>{generatedDeposit.ticket}</strong>
+                      </div>
+                    </div>
+                    <div className="field-stack">
+                      <span className="field-label">{copy.modal.walletLabel}</span>
+                      <div className="hash-display">{generatedDeposit.wallet}</div>
+                    </div>
+                    <p className="modal-note deposit-warning">{copy.modal.notice}</p>
+                    <div className="deposit-detail-actions">
+                      <button className="ghost-link" type="button" onClick={generateDepositRequest}>
+                        {copy.modal.regenerate}
+                      </button>
+                      <button
+                        className="ghost-link support-link"
+                        type="button"
+                        onClick={() => openSupport(generatedDeposit.ticket)}
+                      >
+                        {copy.modal.support}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="action-row wallet-buttons">
-              <button className="primary-button shimmer-button" type="button" onClick={startDemoSimulation}>
-                {copy.modal.submit}
+              <button
+                className="primary-button shimmer-button"
+                type="button"
+                onClick={
+                  generatedDeposit
+                    ? () => startDemoSimulation(generatedDeposit.amountUsd, generatedDeposit.symbol)
+                    : generateDepositRequest
+                }
+              >
+                {generatedDeposit ? copy.modal.confirm : copy.modal.generate}
               </button>
-              <button className="secondary-button" type="button" onClick={() => setDepositOpen(false)}>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={closeDepositModal}
+              >
                 {copy.modal.cancel}
               </button>
             </div>
