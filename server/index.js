@@ -806,6 +806,63 @@ async function startTelegramPolling() {
   poll();
 }
 
+function getTelegramWebhookUrl() {
+  const baseUrl =
+    process.env.TELEGRAM_WEBHOOK_BASE_URL ||
+    process.env.RENDER_EXTERNAL_URL ||
+    process.env.PUBLIC_APP_URL ||
+    process.env.APP_BASE_URL;
+
+  if (!baseUrl) {
+    return "";
+  }
+
+  return new URL("/api/telegram/webhook", baseUrl).toString();
+}
+
+function getTelegramUpdateMode() {
+  return String(process.env.TELEGRAM_UPDATE_MODE || "auto").trim().toLowerCase();
+}
+
+async function startTelegramUpdates() {
+  if (!process.env.TELEGRAM_BOT_TOKEN) {
+    return;
+  }
+
+  const mode = getTelegramUpdateMode();
+  const webhookUrl = getTelegramWebhookUrl();
+
+  if (mode === "off") {
+    console.log("Telegram updates are disabled.");
+    return;
+  }
+
+  if (mode !== "polling" && webhookUrl) {
+    try {
+      await callTelegramApi("setWebhook", {
+        url: webhookUrl,
+        allowed_updates: ["message"],
+        secret_token: process.env.TELEGRAM_WEBHOOK_SECRET || undefined
+      });
+      console.log(`Telegram webhook registered: ${webhookUrl}`);
+      return;
+    } catch (error) {
+      console.error("Failed to register Telegram webhook:", error.message || error);
+
+      if (mode === "webhook") {
+        return;
+      }
+    }
+  }
+
+  if (mode === "webhook" && !webhookUrl) {
+    console.error("Telegram webhook mode requested, but no public webhook URL is configured.");
+    return;
+  }
+
+  await startTelegramPolling();
+}
+
 async function fetchBinanceMarket(symbol) {
   const [ohlcResponse, marketResponse] = await Promise.all([
     fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1h&limit=24`),
@@ -1311,6 +1368,32 @@ app.post("/api/bot/test", async (req, res) => {
   }
 });
 
+app.post("/api/telegram/webhook", async (req, res) => {
+  const secretToken = process.env.TELEGRAM_WEBHOOK_SECRET;
+  const headerToken = req.get("x-telegram-bot-api-secret-token");
+
+  if (secretToken && headerToken !== secretToken) {
+    return res.status(403).json({
+      error: "Invalid Telegram webhook token"
+    });
+  }
+
+  try {
+    if (req.body?.message) {
+      await handleTelegramMessage(req.body.message);
+    }
+
+    return res.json({
+      ok: true
+    });
+  } catch (error) {
+    console.error("Telegram webhook error:", error.message || error);
+    return res.status(200).json({
+      ok: false
+    });
+  }
+});
+
 app.use(express.static(distPath));
 
 app.get("/{*path}", (req, res, next) => {
@@ -1324,5 +1407,5 @@ app.get("/{*path}", (req, res, next) => {
 app.listen(port, "0.0.0.0", () => {
   console.log(`Pegasus server listening on :${port}`);
   startSimulationLoop();
-  void startTelegramPolling();
+  void startTelegramUpdates();
 });
