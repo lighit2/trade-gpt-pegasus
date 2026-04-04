@@ -9,6 +9,7 @@ const MIN_DEPOSIT_AMOUNT = 20;
 const HERO_DISMISS_MS = 420;
 const HOME_ACTION_DELAY_MS = 220;
 const WITHDRAW_UNLOCK_VOLUME = 500;
+const DEPOSIT_GENERATION_DELAY_MS = 520;
 
 const depositAssetMeta = {
   BTC: {
@@ -550,6 +551,7 @@ function App() {
   const [depositInput, setDepositInput] = useState("20");
   const [depositCurrency, setDepositCurrency] = useState("USDT");
   const [generatedDeposit, setGeneratedDeposit] = useState(null);
+  const [isDepositGenerating, setDepositGenerating] = useState(false);
   const [demoAmount, setDemoAmount] = useState(0);
   const [demoProfit, setDemoProfit] = useState(0);
   const [demoPercent, setDemoPercent] = useState(0);
@@ -569,6 +571,7 @@ function App() {
   const heroDismissRef = useRef(null);
   const tabTransitionRef = useRef(null);
   const actionDelayRef = useRef(null);
+  const depositGenerationRef = useRef(null);
 
   const copy = uiText[language];
   const currentAssetMeta = assetMeta[currentAsset];
@@ -794,6 +797,10 @@ function App() {
       if (actionDelayRef.current) {
         window.clearTimeout(actionDelayRef.current);
       }
+
+      if (depositGenerationRef.current) {
+        window.clearTimeout(depositGenerationRef.current);
+      }
     };
   }, []);
 
@@ -889,6 +896,12 @@ function App() {
   };
 
   const closeDepositModal = () => {
+    if (depositGenerationRef.current) {
+      window.clearTimeout(depositGenerationRef.current);
+      depositGenerationRef.current = null;
+    }
+
+    setDepositGenerating(false);
     setDepositOpen(false);
     setGeneratedDeposit(null);
   };
@@ -1119,6 +1132,19 @@ function App() {
       wallet: createDepositAddress(depositCurrency),
       ticket: createReferenceNumber("PG")
     });
+  };
+
+  const handleDepositGenerate = () => {
+    if (isDepositGenerating) {
+      return;
+    }
+
+    setDepositGenerating(true);
+    depositGenerationRef.current = window.setTimeout(() => {
+      depositGenerationRef.current = null;
+      setDepositGenerating(false);
+      generateDepositRequest();
+    }, DEPOSIT_GENERATION_DELAY_MS);
   };
 
   const getRewardProgress = (program) =>
@@ -1659,6 +1685,7 @@ function App() {
                   id="deposit-currency"
                   className="currency-select"
                   value={depositCurrency}
+                  disabled={isDepositGenerating}
                   onChange={(event) => {
                     setDepositCurrency(event.target.value);
                     setGeneratedDeposit(null);
@@ -1684,6 +1711,7 @@ function App() {
                     type="number"
                     min={MIN_DEPOSIT_AMOUNT}
                     step="1"
+                    disabled={isDepositGenerating}
                     value={depositInput}
                     onChange={(event) => {
                       setDepositInput(event.target.value);
@@ -1739,12 +1767,15 @@ function App() {
             </div>
             <div className="action-row wallet-buttons">
               <button
-                className="primary-button shimmer-button"
+                className="primary-button shimmer-button button-loading"
                 type="button"
+                data-busy={isDepositGenerating ? "true" : undefined}
+                aria-busy={isDepositGenerating}
+                disabled={isDepositGenerating}
                 onClick={
                   generatedDeposit
                     ? () => startDemoSimulation(generatedDeposit.amountUsd, generatedDeposit.symbol)
-                    : generateDepositRequest
+                    : handleDepositGenerate
                 }
               >
                 {generatedDeposit ? copy.modal.confirm : copy.modal.generate}
@@ -1752,6 +1783,7 @@ function App() {
               <button
                 className="secondary-button"
                 type="button"
+                disabled={isDepositGenerating}
                 onClick={closeDepositModal}
               >
                 {copy.modal.cancel}
