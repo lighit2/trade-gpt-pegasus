@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -9,7 +10,101 @@ const port = Number(process.env.PORT || 3001);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distPath = path.resolve(__dirname, "../dist");
+const dataDir = path.resolve(__dirname, "../data");
+const userStatePath = path.join(dataDir, "user-state.json");
 let lynMarketCache = null;
+let userStateCache = null;
+
+function toUserKey(value) {
+  const normalized = String(value || "").trim();
+  return /^\d+$/.test(normalized) ? normalized : null;
+}
+
+async function readUserStateStore() {
+  if (userStateCache) {
+    return userStateCache;
+  }
+
+  try {
+    const raw = await fs.readFile(userStatePath, "utf8");
+    userStateCache = JSON.parse(raw);
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+
+    userStateCache = {};
+  }
+
+  return userStateCache;
+}
+
+async function writeUserStateStore(store) {
+  await fs.mkdir(dataDir, { recursive: true });
+  await fs.writeFile(userStatePath, JSON.stringify(store, null, 2));
+  userStateCache = store;
+}
+
+function sanitizeActivityItem(item) {
+  if (!item || typeof item !== "object") {
+    return null;
+  }
+
+  return {
+    type: String(item.type || "mode"),
+    amount: String(item.amount || "$0.00"),
+    asset: String(item.asset || "USD"),
+    from: item.from ? String(item.from) : undefined,
+    to: item.to ? String(item.to) : undefined,
+    timestamp: Number(item.timestamp) || Date.now()
+  };
+}
+
+function sanitizeUserState(state = {}) {
+  const validAssets = new Set(["lyn", "bitcoin", "ethereum"]);
+  const activityFeed = Array.isArray(state.activityFeed)
+    ? state.activityFeed.map(sanitizeActivityItem).filter(Boolean).slice(0, 12)
+    : [];
+
+  return {
+    currentAsset: validAssets.has(state.currentAsset) ? state.currentAsset : "lyn",
+    demoAmount: Number(state.demoAmount) || 0,
+    demoProfit: Number(state.demoProfit) || 0,
+    demoPercent: Number(state.demoPercent) || 0,
+    totalDeposited: Number(state.totalDeposited) || 0,
+    totalTraded: Number(state.totalTraded) || 0,
+    isHeroVisible: state.isHeroVisible !== false,
+    activityFeed,
+    updatedAt: Date.now()
+  };
+}
+
+async function sendTelegramMessage(chatId, text) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+
+  if (!token || !chatId) {
+    throw new Error("Missing TELEGRAM_BOT_TOKEN or target chat id");
+  }
+
+  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text
+    })
+  });
+
+  const payload = await response.json();
+
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.description || "Telegram Bot API rejected the request");
+  }
+
+  return payload.result;
+}
 
 async function fetchBinanceMarket(symbol) {
   const [ohlcResponse, marketResponse] = await Promise.all([
@@ -167,6 +262,102 @@ app.get("/api/news/latest", async (_req, res) => {
   }
 });
 
+app.get("/api/app-state/:userId", async (req, res) => {
+  const userId = toUserKey(req.params.userId);
+
+  if (!userId) {
+    return res.status(400).json({
+      error: "Invalid Telegram user id"
+    });
+  }
+
+  try {
+    const store = await readUserStateStore();
+    return res.json({
+      ok: true,
+      state: store[userId] || null
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message || "Failed to load user state"
+    });
+  }
+});
+
+app.post("/api/app-state", async (req, res) => {
+  const userId = toUserKey(req.body?.userId);
+
+  if (!userId) {
+    return res.status(400).json({
+      error: "Invalid Telegram user id"
+    });
+  }
+
+  try {
+    const store = await readUserStateStore();
+    store[userId] = sanitizeUserState(req.body?.state);
+    await writeUserStateStore(store);
+
+    return res.json({
+      ok: true,
+      state: store[userId]
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message || "Failed to save user state"
+    });
+  }
+});
+
+app.post("/api/deposits/confirm", async (req, res) => {
+  const userId = toUserKey(req.body?.userId);
+  const notifyChatId = toUserKey(process.env.TELEGRAM_ADMIN_CHAT_ID || req.body?.notifyChatId || userId);
+  const deposit = req.body?.deposit || {};
+  const user = req.body?.user || {};
+
+  if (!deposit.symbol || !deposit.wallet || !deposit.ticket) {
+    return res.status(400).json({
+      error: "Missing deposit requisites"
+    });
+  }
+
+  if (!notifyChatId) {
+    return res.status(400).json({
+      error: "Missing Telegram target chat id"
+    });
+  }
+
+  const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.username || "Unknown";
+  const lines = [
+    "Pegasus payment confirmation",
+    "",
+    `User: ${displayName}`,
+    `Telegram ID: ${userId || "unknown"}`,
+    user.username ? `Username: @${user.username}` : null,
+    `Amount: $${Number(deposit.amountUsd || 0).toFixed(2)}`,
+    `Asset: ${deposit.symbol}`,
+    `Network: ${deposit.network || "-"}`,
+    `Transfer: ${deposit.cryptoAmount} ${deposit.symbol}`,
+    `Wallet: ${deposit.wallet}`,
+    `Ticket: ${deposit.ticket}`,
+    "",
+    "The user pressed confirmation. Check the incoming payment."
+  ].filter(Boolean);
+
+  try {
+    const result = await sendTelegramMessage(notifyChatId, lines.join("\n"));
+
+    return res.json({
+      ok: true,
+      result
+    });
+  } catch (error) {
+    return res.status(502).json({
+      error: error.message || "Failed to notify Telegram"
+    });
+  }
+});
+
 app.post("/api/bot/test", async (req, res) => {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_TEST_CHAT_ID;
@@ -179,28 +370,10 @@ app.post("/api/bot/test", async (req, res) => {
   }
 
   try {
-    const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text
-      })
-    });
-
-    const payload = await response.json();
-
-    if (!response.ok || !payload.ok) {
-      return res.status(502).json({
-        error: payload.description || "Telegram Bot API rejected the request"
-      });
-    }
-
+    const result = await sendTelegramMessage(chatId, text);
     return res.json({
       ok: true,
-      result: payload.result
+      result
     });
   } catch (error) {
     return res.status(500).json({

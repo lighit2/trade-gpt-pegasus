@@ -26,6 +26,7 @@ Create `.env`:
 ```bash
 TELEGRAM_BOT_TOKEN=your_bot_token
 TELEGRAM_TEST_CHAT_ID=your_chat_id
+TELEGRAM_ADMIN_CHAT_ID=your_owner_chat_id
 PORT=3001
 VITE_API_BASE_URL=https://your-render-service.onrender.com
 ```
@@ -45,4 +46,5 @@ VITE_API_BASE_URL=https://your-render-service.onrender.com
 - Env:
   - `TELEGRAM_BOT_TOKEN`
   - `TELEGRAM_TEST_CHAT_ID`
+  - `TELEGRAM_ADMIN_CHAT_ID`
   - `PORT=10000`
