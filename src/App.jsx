@@ -176,6 +176,18 @@ const uiText = {
       statusDone: "выполнено",
       statusProgress: "в процессе"
     },
+    admin: {
+      open: "Admin",
+      title: "Заявки на пополнение",
+      refresh: "Обновить",
+      empty: "Сейчас нет ожидающих заявок.",
+      approve: "Подтвердить",
+      approving: "Подтверждение...",
+      pending: "ожидает",
+      amount: "Сумма",
+      user: "Пользователь",
+      created: "Создано"
+    },
     activityPage: {
       tag: "Лента действий",
       title: "Последние действия",
@@ -270,7 +282,15 @@ const uiText = {
       supportBeta: "Тех. поддержка подключится в следующем обновлении.",
       supportTicket: (ticket) =>
         `Если средства не пришли за 20 минут, обратись в техподдержку и передай номер транзакции ${ticket}.`,
-      depositNotifyFailed: "Баланс обновлен, но сообщение в Telegram не отправилось. Проверь TELEGRAM_BOT_TOKEN и chat id.",
+      depositRequestSent: (ticket) =>
+        `Заявка ${ticket} отправлена админу на проверку. Баланс будет пополнен только после подтверждения.`,
+      depositRequestWarning: (ticket) =>
+        `Заявка ${ticket} сохранена, но уведомление в Telegram не отправилось. Проверь TELEGRAM_BOT_TOKEN и TELEGRAM_ADMIN_CHAT_ID.`,
+      depositRequestFailed: "Не удалось отправить заявку на пополнение.",
+      adminLoadFailed: "Не удалось загрузить заявки администратора.",
+      adminApproveDone: (ticket) => `Пополнение ${ticket} подтверждено.`,
+      adminApproveFailed: "Не удалось подтвердить пополнение.",
+      telegramSessionRequired: "Подтверждение депозита доступно только внутри Telegram Mini App.",
       amountInvalid: "Введите сумму в долларах.",
       amountMinimum: (min) => `Минимальная сумма пополнения - $${min}.`,
       sendNeedDeposit: "Сначала нужно пополнить баланс.",
@@ -284,6 +304,8 @@ const uiText = {
     activity: {
       depositTitle: "Пополнено",
       depositNote: "Баланс пополнен. AI-сессия запущена.",
+      depositPendingTitle: "Заявка на депозит",
+      depositPendingNote: "Платеж отправлен на ручную проверку администратора.",
       exchangeTitle: "Обменено",
       exchangeNote: (from, to) => `${from} -> ${to}, удержана комиссия за обмен.`,
       modeTitle: "Режим рынка",
@@ -391,6 +413,18 @@ const uiText = {
       statusDone: "done",
       statusProgress: "in progress"
     },
+    admin: {
+      open: "Admin",
+      title: "Funding requests",
+      refresh: "Refresh",
+      empty: "There are no pending requests right now.",
+      approve: "Approve",
+      approving: "Approving...",
+      pending: "pending",
+      amount: "Amount",
+      user: "User",
+      created: "Created"
+    },
     activityPage: {
       tag: "Activity feed",
       title: "Recent activity",
@@ -485,8 +519,15 @@ const uiText = {
       supportBeta: "Support will connect in the next update.",
       supportTicket: (ticket) =>
         `If funds do not arrive within 20 minutes, contact support and provide transaction number ${ticket}.`,
-      depositNotifyFailed:
-        "Balance was updated, but the Telegram message was not sent. Check TELEGRAM_BOT_TOKEN and target chat id.",
+      depositRequestSent: (ticket) =>
+        `Request ${ticket} was sent to the admin for review. Balance will be credited only after approval.`,
+      depositRequestWarning: (ticket) =>
+        `Request ${ticket} was saved, but the Telegram notification was not sent. Check TELEGRAM_BOT_TOKEN and TELEGRAM_ADMIN_CHAT_ID.`,
+      depositRequestFailed: "Failed to submit the funding request.",
+      adminLoadFailed: "Failed to load admin requests.",
+      adminApproveDone: (ticket) => `Funding ${ticket} was approved.`,
+      adminApproveFailed: "Failed to approve the funding request.",
+      telegramSessionRequired: "Deposit confirmation works only inside the Telegram Mini App.",
       amountInvalid: "Enter an amount in USD.",
       amountMinimum: (min) => `Minimum funding amount is $${min}.`,
       sendNeedDeposit: "You need to fund the balance first.",
@@ -500,6 +541,8 @@ const uiText = {
     activity: {
       depositTitle: "Funded",
       depositNote: "Balance funded. AI session launched.",
+      depositPendingTitle: "Funding request",
+      depositPendingNote: "Payment was sent for manual admin review.",
       exchangeTitle: "Swapped",
       exchangeNote: (from, to) => `${from} -> ${to}, swap fee applied.`,
       modeTitle: "Market mode",
@@ -577,6 +620,11 @@ function App() {
   const [telegramUser, setTelegramUser] = useState(null);
   const [isTelegramReady, setTelegramReady] = useState(false);
   const [isStateHydrated, setStateHydrated] = useState(false);
+  const [isAdmin, setAdmin] = useState(false);
+  const [isAdminPanelOpen, setAdminPanelOpen] = useState(false);
+  const [pendingDeposits, setPendingDeposits] = useState([]);
+  const [isAdminLoading, setAdminLoading] = useState(false);
+  const [approvingTicket, setApprovingTicket] = useState(null);
   const simulationRef = useRef(null);
   const heroDismissRef = useRef(null);
   const tabTransitionRef = useRef(null);
@@ -591,6 +639,7 @@ function App() {
   const activityPreview = activityFeed.slice(0, 2);
   const hasMoreActivities = activityFeed.length > 2;
   const rewardPrograms = copy.rewardPrograms;
+  const pendingAdminCount = pendingDeposits.length;
   const persistedAppState = useMemo(
     () => ({
       currentAsset,
@@ -683,12 +732,28 @@ function App() {
     };
   };
 
+  const formatAdminStamp = (timestamp) =>
+    new Date(timestamp).toLocaleString(copy.locale, {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+
   const getActivityContent = (item) => {
     if (item.type === "deposit") {
       return {
         icon: "+",
         title: copy.activity.depositTitle,
         note: copy.activity.depositNote
+      };
+    }
+
+    if (item.type === "deposit-pending") {
+      return {
+        icon: "⌛",
+        title: copy.activity.depositPendingTitle,
+        note: copy.activity.depositPendingNote
       };
     }
 
@@ -877,6 +942,48 @@ function App() {
       cancelled = true;
     };
   }, [isTelegramReady, telegramUser?.id]);
+
+  useEffect(() => {
+    if (!telegramUser?.id) {
+      setAdmin(false);
+      setPendingDeposits([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadAdminDeposits = async () => {
+      try {
+        const response = await fetch(`/api/admin/deposits?userId=${telegramUser.id}`);
+
+        if (response.status === 403) {
+          if (!cancelled) {
+            setAdmin(false);
+            setPendingDeposits([]);
+          }
+          return;
+        }
+
+        const payload = await response.json();
+
+        if (!cancelled && response.ok) {
+          setAdmin(true);
+          setPendingDeposits(payload.items || []);
+        }
+      } catch {
+        if (!cancelled) {
+          setAdmin(false);
+          setPendingDeposits([]);
+        }
+      }
+    };
+
+    loadAdminDeposits();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [telegramUser?.id]);
 
   useEffect(() => {
     if (!isStateHydrated) {
@@ -1245,6 +1352,41 @@ function App() {
     showBetaAlert(ticket ? copy.alerts.supportTicket(ticket) : copy.alerts.supportBeta);
   };
 
+  const loadAdminDeposits = async (options = {}) => {
+    if (!telegramUser?.id) {
+      setAdmin(false);
+      setPendingDeposits([]);
+      return;
+    }
+
+    if (!options.silent) {
+      setAdminLoading(true);
+    }
+
+    try {
+      const response = await fetch(`/api/admin/deposits?userId=${telegramUser.id}`);
+
+      if (response.status === 403) {
+        setAdmin(false);
+        setPendingDeposits([]);
+        return;
+      }
+
+      const payload = await response.json();
+
+      if (response.ok) {
+        setAdmin(true);
+        setPendingDeposits(payload.items || []);
+      }
+    } catch {
+      if (!options.silent) {
+        showBetaAlert(copy.alerts.adminLoadFailed);
+      }
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
   const generateDepositRequest = () => {
     const amount = Number.parseFloat(depositInput);
 
@@ -1291,6 +1433,11 @@ function App() {
       return;
     }
 
+    if (!telegramUser?.id) {
+      showBetaAlert(copy.alerts.telegramSessionRequired);
+      return;
+    }
+
     setDepositConfirming(true);
 
     try {
@@ -1300,22 +1447,68 @@ function App() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          userId: telegramUser?.id || null,
-          notifyChatId: telegramUser?.id || null,
+          userId: telegramUser.id,
           user: telegramUser,
           deposit: generatedDeposit
         })
       });
 
+      const payload = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || "Failed to notify Telegram");
+        throw new Error(payload.error || "Failed to submit deposit request");
       }
+
+      pushActivity({
+        type: "deposit-pending",
+        amount: `+$${generatedDeposit.amountUsd.toFixed(2)}`,
+        asset: generatedDeposit.symbol,
+        timestamp: Date.now()
+      });
+
+      closeDepositModal();
+      showBetaAlert(
+        payload.notified === false
+          ? copy.alerts.depositRequestWarning(generatedDeposit.ticket)
+          : copy.alerts.depositRequestSent(generatedDeposit.ticket)
+      );
     } catch {
-      showBetaAlert(copy.alerts.depositNotifyFailed);
+      showBetaAlert(copy.alerts.depositRequestFailed);
     } finally {
       setDepositConfirming(false);
-      startDemoSimulation(generatedDeposit.amountUsd, generatedDeposit.symbol);
+    }
+  };
+
+  const approvePendingDeposit = async (ticket) => {
+    if (!telegramUser?.id || !ticket || approvingTicket) {
+      return;
+    }
+
+    setApprovingTicket(ticket);
+
+    try {
+      const response = await fetch("/api/admin/deposits/approve", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          adminUserId: telegramUser.id,
+          ticket
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to approve deposit");
+      }
+
+      setPendingDeposits((current) => current.filter((item) => item.ticket !== ticket));
+      showBetaAlert(copy.alerts.adminApproveDone(ticket));
+    } catch {
+      showBetaAlert(copy.alerts.adminApproveFailed);
+    } finally {
+      setApprovingTicket(null);
     }
   };
 
@@ -1787,23 +1980,31 @@ function App() {
             </h1>
           </div>
         </div>
-        <div className="language-switch" role="group" aria-label={copy.languageSwitchLabel}>
-          <button
-            className={language === "ru" ? "language-button active" : "language-button"}
-            type="button"
-            aria-pressed={language === "ru"}
-            onClick={() => setLanguage("ru")}
-          >
-            RU
-          </button>
-          <button
-            className={language === "en" ? "language-button active" : "language-button"}
-            type="button"
-            aria-pressed={language === "en"}
-            onClick={() => setLanguage("en")}
-          >
-            EN
-          </button>
+        <div className="topbar-actions">
+          {isAdmin && (
+            <button className="ghost-link admin-link" type="button" onClick={() => setAdminPanelOpen(true)}>
+              <span>{copy.admin.open}</span>
+              {pendingAdminCount > 0 && <span className="admin-count">{pendingAdminCount}</span>}
+            </button>
+          )}
+          <div className="language-switch" role="group" aria-label={copy.languageSwitchLabel}>
+            <button
+              className={language === "ru" ? "language-button active" : "language-button"}
+              type="button"
+              aria-pressed={language === "ru"}
+              onClick={() => setLanguage("ru")}
+            >
+              RU
+            </button>
+            <button
+              className={language === "en" ? "language-button active" : "language-button"}
+              type="button"
+              aria-pressed={language === "en"}
+              onClick={() => setLanguage("en")}
+            >
+              EN
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1988,6 +2189,73 @@ function App() {
               <button className="secondary-button" type="button" onClick={() => setExchangeOpen(false)}>
                 {copy.exchange.close}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAdminPanelOpen && (
+        <div className="modal-backdrop" onClick={() => setAdminPanelOpen(false)} role="presentation">
+          <div className="deposit-modal panel admin-modal" onClick={(event) => event.stopPropagation()} role="dialog">
+            <div className="card-head">
+              <div>
+                <p className="section-tag">{copy.admin.open}</p>
+                <h3>{copy.admin.title}</h3>
+              </div>
+              <button className="ghost-link" type="button" onClick={() => loadAdminDeposits()} disabled={isAdminLoading}>
+                {copy.admin.refresh}
+              </button>
+            </div>
+            <div className="admin-list">
+              {pendingDeposits.length > 0 ? (
+                pendingDeposits.map((item) => (
+                  <article className="admin-card" key={item.ticket}>
+                    <div className="admin-card-head">
+                      <div>
+                        <strong>{item.ticket}</strong>
+                        <div className="admin-stamp">{formatAdminStamp(item.createdAt)}</div>
+                      </div>
+                      <span className="admin-pill">{copy.admin.pending}</span>
+                    </div>
+                    <div className="detail-grid">
+                      <div className="detail-row">
+                        <span>{copy.admin.user}</span>
+                        <strong>{item.username ? `@${item.username}` : item.displayName || item.userId}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>{copy.admin.amount}</span>
+                        <strong>{formatMoney(item.amountUsd)}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>{copy.modal.currencyLabel}</span>
+                        <strong>{`${item.symbol} / ${item.network}`}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>{copy.modal.amountCryptoLabel}</span>
+                        <strong>{`${Number(item.cryptoAmount).toFixed(item.decimals)} ${item.symbol}`}</strong>
+                      </div>
+                    </div>
+                    <div className="field-stack">
+                      <span className="field-label">{copy.modal.walletLabel}</span>
+                      <div className="hash-display">{item.wallet}</div>
+                    </div>
+                    <div className="admin-card-actions">
+                      <button
+                        className="primary-button shimmer-button button-loading"
+                        type="button"
+                        data-busy={approvingTicket === item.ticket ? "true" : undefined}
+                        aria-busy={approvingTicket === item.ticket}
+                        disabled={Boolean(approvingTicket)}
+                        onClick={() => approvePendingDeposit(item.ticket)}
+                      >
+                        {approvingTicket === item.ticket ? copy.admin.approving : copy.admin.approve}
+                      </button>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <div className="activity-empty">{copy.admin.empty}</div>
+              )}
             </div>
           </div>
         </div>

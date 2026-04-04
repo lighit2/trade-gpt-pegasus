@@ -12,8 +12,10 @@ const __dirname = path.dirname(__filename);
 const distPath = path.resolve(__dirname, "../dist");
 const dataDir = path.resolve(__dirname, "../data");
 const userStatePath = path.join(dataDir, "user-state.json");
+const pendingDepositsPath = path.join(dataDir, "pending-deposits.json");
 let lynMarketCache = null;
 let userStateCache = null;
+let pendingDepositsCache = null;
 
 function toUserKey(value) {
   const normalized = String(value || "").trim();
@@ -43,6 +45,31 @@ async function writeUserStateStore(store) {
   await fs.mkdir(dataDir, { recursive: true });
   await fs.writeFile(userStatePath, JSON.stringify(store, null, 2));
   userStateCache = store;
+}
+
+async function readPendingDepositsStore() {
+  if (pendingDepositsCache) {
+    return pendingDepositsCache;
+  }
+
+  try {
+    const raw = await fs.readFile(pendingDepositsPath, "utf8");
+    pendingDepositsCache = JSON.parse(raw);
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+
+    pendingDepositsCache = {};
+  }
+
+  return pendingDepositsCache;
+}
+
+async function writePendingDepositsStore(store) {
+  await fs.mkdir(dataDir, { recursive: true });
+  await fs.writeFile(pendingDepositsPath, JSON.stringify(store, null, 2));
+  pendingDepositsCache = store;
 }
 
 function sanitizeActivityItem(item) {
@@ -77,6 +104,59 @@ function sanitizeUserState(state = {}) {
     activityFeed,
     updatedAt: Date.now()
   };
+}
+
+function mergeActivityFeed(existing = [], incoming = []) {
+  const seen = new Set();
+
+  return [...existing, ...incoming]
+    .sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0))
+    .filter((item) => {
+      const key = `${item.type}:${item.timestamp}:${item.amount}:${item.asset}`;
+
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 12);
+}
+
+function mergeUserState(existingState = {}, incomingState = {}) {
+  const existing = sanitizeUserState(existingState);
+  const incoming = sanitizeUserState(incomingState);
+  const mergedDemoAmount = Math.max(existing.demoAmount, incoming.demoAmount);
+  const mergedTotalDeposited = Math.max(existing.totalDeposited, incoming.totalDeposited);
+  const mergedTotalTraded = Math.max(existing.totalTraded, incoming.totalTraded);
+  const mergedDemoProfit = Number(incoming.demoProfit || existing.demoProfit || 0);
+  const mergedDemoPercent =
+    mergedDemoAmount > 0 ? Number(((mergedDemoProfit / mergedDemoAmount) * 100).toFixed(2)) : 0;
+
+  return sanitizeUserState({
+    currentAsset: incoming.currentAsset,
+    demoAmount: mergedDemoAmount,
+    demoProfit: mergedDemoProfit,
+    demoPercent: mergedDemoPercent,
+    totalDeposited: mergedTotalDeposited,
+    totalTraded: mergedTotalTraded,
+    isHeroVisible: incoming.isHeroVisible,
+    activityFeed: mergeActivityFeed(existing.activityFeed, incoming.activityFeed)
+  });
+}
+
+function getAdminChatId() {
+  return toUserKey(process.env.TELEGRAM_ADMIN_CHAT_ID);
+}
+
+function isAdminUser(userId) {
+  const adminChatId = getAdminChatId();
+  return Boolean(adminChatId && userId && adminChatId === toUserKey(userId));
+}
+
+function getUserDisplayName(user = {}) {
+  return [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.username || "Unknown";
 }
 
 async function sendTelegramMessage(chatId, text) {
@@ -284,6 +364,32 @@ app.get("/api/app-state/:userId", async (req, res) => {
   }
 });
 
+app.get("/api/admin/deposits", async (req, res) => {
+  const userId = toUserKey(req.query.userId);
+
+  if (!isAdminUser(userId)) {
+    return res.status(403).json({
+      error: "Admin access required"
+    });
+  }
+
+  try {
+    const store = await readPendingDepositsStore();
+    const items = Object.values(store)
+      .filter((item) => item.status === "pending")
+      .sort((a, b) => b.createdAt - a.createdAt);
+
+    return res.json({
+      ok: true,
+      items
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message || "Failed to load pending deposits"
+    });
+  }
+});
+
 app.post("/api/app-state", async (req, res) => {
   const userId = toUserKey(req.body?.userId);
 
@@ -295,7 +401,7 @@ app.post("/api/app-state", async (req, res) => {
 
   try {
     const store = await readUserStateStore();
-    store[userId] = sanitizeUserState(req.body?.state);
+    store[userId] = mergeUserState(store[userId], req.body?.state);
     await writeUserStateStore(store);
 
     return res.json({
@@ -311,9 +417,14 @@ app.post("/api/app-state", async (req, res) => {
 
 app.post("/api/deposits/confirm", async (req, res) => {
   const userId = toUserKey(req.body?.userId);
-  const notifyChatId = toUserKey(process.env.TELEGRAM_ADMIN_CHAT_ID || req.body?.notifyChatId || userId);
   const deposit = req.body?.deposit || {};
   const user = req.body?.user || {};
+
+  if (!userId) {
+    return res.status(400).json({
+      error: "Invalid Telegram user id"
+    });
+  }
 
   if (!deposit.symbol || !deposit.wallet || !deposit.ticket) {
     return res.status(400).json({
@@ -321,39 +432,166 @@ app.post("/api/deposits/confirm", async (req, res) => {
     });
   }
 
-  if (!notifyChatId) {
-    return res.status(400).json({
-      error: "Missing Telegram target chat id"
+  const store = await readPendingDepositsStore();
+  const existing = store[deposit.ticket];
+
+  if (existing?.status === "approved") {
+    return res.status(409).json({
+      error: "Deposit already approved"
     });
   }
 
-  const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.username || "Unknown";
+  const entry = {
+    ticket: String(deposit.ticket),
+    userId,
+    username: user.username || "",
+    displayName: getUserDisplayName(user),
+    symbol: String(deposit.symbol),
+    network: String(deposit.network || ""),
+    wallet: String(deposit.wallet),
+    amountUsd: Number(deposit.amountUsd) || 0,
+    cryptoAmount: Number(deposit.cryptoAmount) || 0,
+    decimals: Number(deposit.decimals) || 0,
+    status: "pending",
+    createdAt: existing?.createdAt || Date.now(),
+    updatedAt: Date.now()
+  };
+
+  store[entry.ticket] = entry;
+  await writePendingDepositsStore(store);
+
   const lines = [
-    "Pegasus payment confirmation",
+    "Pegasus payment request",
     "",
-    `User: ${displayName}`,
-    `Telegram ID: ${userId || "unknown"}`,
+    `User: ${entry.displayName}`,
+    `Telegram ID: ${userId}`,
     user.username ? `Username: @${user.username}` : null,
-    `Amount: $${Number(deposit.amountUsd || 0).toFixed(2)}`,
-    `Asset: ${deposit.symbol}`,
-    `Network: ${deposit.network || "-"}`,
-    `Transfer: ${deposit.cryptoAmount} ${deposit.symbol}`,
-    `Wallet: ${deposit.wallet}`,
-    `Ticket: ${deposit.ticket}`,
+    `Amount: $${entry.amountUsd.toFixed(2)}`,
+    `Asset: ${entry.symbol}`,
+    `Network: ${entry.network || "-"}`,
+    `Transfer: ${entry.cryptoAmount} ${entry.symbol}`,
+    `Wallet: ${entry.wallet}`,
+    `Ticket: ${entry.ticket}`,
     "",
-    "The user pressed confirmation. Check the incoming payment."
+    "The user pressed confirmation. Review the payment and approve it in admin."
   ].filter(Boolean);
 
   try {
-    const result = await sendTelegramMessage(notifyChatId, lines.join("\n"));
+    const adminChatId = getAdminChatId();
+    let result = null;
+    let notified = false;
+
+    if (adminChatId) {
+      result = await sendTelegramMessage(adminChatId, lines.join("\n"));
+      notified = true;
+    }
 
     return res.json({
       ok: true,
+      notified,
+      request: entry,
       result
     });
   } catch (error) {
-    return res.status(502).json({
-      error: error.message || "Failed to notify Telegram"
+    return res.json({
+      ok: true,
+      notified: false,
+      request: entry,
+      warning: error.message || "Failed to notify Telegram"
+    });
+  }
+});
+
+app.post("/api/admin/deposits/approve", async (req, res) => {
+  const adminUserId = toUserKey(req.body?.adminUserId);
+  const ticket = String(req.body?.ticket || "").trim();
+
+  if (!isAdminUser(adminUserId)) {
+    return res.status(403).json({
+      error: "Admin access required"
+    });
+  }
+
+  if (!ticket) {
+    return res.status(400).json({
+      error: "Missing ticket"
+    });
+  }
+
+  try {
+    const pendingStore = await readPendingDepositsStore();
+    const request = pendingStore[ticket];
+
+    if (!request) {
+      return res.status(404).json({
+        error: "Pending deposit not found"
+      });
+    }
+
+    if (request.status === "approved") {
+      return res.status(409).json({
+        error: "Deposit already approved"
+      });
+    }
+
+    const userStore = await readUserStateStore();
+    const currentState = sanitizeUserState(userStore[request.userId] || {});
+    const amount = Number(request.amountUsd) || 0;
+    const nextDemoAmount = Number((currentState.demoAmount + amount).toFixed(2));
+    const nextTotalDeposited = Number((currentState.totalDeposited + amount).toFixed(2));
+    const nextDemoPercent = nextDemoAmount > 0 ? Number(((currentState.demoProfit / nextDemoAmount) * 100).toFixed(2)) : 0;
+    const nextActivityFeed = [
+      {
+        type: "deposit",
+        amount: `+$${amount.toFixed(2)}`,
+        asset: request.symbol,
+        timestamp: Date.now()
+      },
+      ...(currentState.activityFeed || [])
+    ].slice(0, 12);
+
+    userStore[request.userId] = sanitizeUserState({
+      ...currentState,
+      demoAmount: nextDemoAmount,
+      demoProfit: currentState.demoProfit,
+      demoPercent: nextDemoPercent,
+      totalDeposited: nextTotalDeposited,
+      totalTraded: currentState.totalTraded,
+      isHeroVisible: currentState.isHeroVisible,
+      activityFeed: nextActivityFeed
+    });
+    await writeUserStateStore(userStore);
+
+    pendingStore[ticket] = {
+      ...request,
+      status: "approved",
+      approvedAt: Date.now(),
+      approvedBy: adminUserId,
+      updatedAt: Date.now()
+    };
+    await writePendingDepositsStore(pendingStore);
+
+    let userNotified = false;
+
+    try {
+      await sendTelegramMessage(
+        request.userId,
+        `Pegasus deposit approved\n\nTicket: ${request.ticket}\nAmount: $${amount.toFixed(2)}\nAsset: ${request.symbol}`
+      );
+      userNotified = true;
+    } catch {
+      userNotified = false;
+    }
+
+    return res.json({
+      ok: true,
+      approved: pendingStore[ticket],
+      state: userStore[request.userId],
+      userNotified
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message || "Failed to approve deposit"
     });
   }
 });

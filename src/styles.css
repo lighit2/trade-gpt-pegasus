@@ -147,6 +147,14 @@ button:disabled {
   margin-bottom: 12px;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .eyebrow,
 .section-tag {
   margin: 0 0 6px;
@@ -918,6 +926,33 @@ button:disabled {
   font-size: 12px;
 }
 
+.admin-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-count,
+.admin-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(91, 255, 162, 0.12);
+  border: 1px solid rgba(91, 255, 162, 0.24);
+  color: var(--green-soft);
+  font-size: 10px;
+  font-weight: 800;
+}
+
 .news-list {
   display: grid;
   gap: 8px;
@@ -1459,6 +1494,45 @@ button:disabled {
   color: #ffd99b;
 }
 
+.admin-modal {
+  width: min(100%, 460px);
+}
+
+.admin-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.admin-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(20, 16, 34, 0.6), rgba(6, 10, 12, 0.26)),
+    radial-gradient(circle at top left, rgba(138, 101, 255, 0.14), transparent 44%);
+}
+
+.admin-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.admin-stamp {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.admin-card-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .deposit-detail-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1745,6 +1819,17 @@ button:disabled {
 
   .topbar {
     align-items: flex-start;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .admin-card-head,
+  .admin-card-actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .legal-footer {
