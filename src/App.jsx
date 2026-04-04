@@ -11,7 +11,6 @@ const HOME_ACTION_DELAY_MS = 220;
 const WITHDRAW_UNLOCK_VOLUME = 500;
 const DEPOSIT_GENERATION_DELAY_MS = 520;
 const SIMULATION_STEP_MS = 5000;
-const SIMULATION_MAX_STEPS = 24;
 
 const depositAssetMeta = {
   BTC: {
@@ -633,17 +632,10 @@ function App() {
   const [pendingDeposits, setPendingDeposits] = useState([]);
   const [isAdminLoading, setAdminLoading] = useState(false);
   const [approvingTicket, setApprovingTicket] = useState(null);
-  const simulationRef = useRef(null);
   const heroDismissRef = useRef(null);
   const tabTransitionRef = useRef(null);
   const actionDelayRef = useRef(null);
   const depositGenerationRef = useRef(null);
-  const simulationStateRef = useRef({
-    demoAmount: 0,
-    demoPercent: 0,
-    simulationTicks: 0,
-    isDemoRunning: false
-  });
 
   const copy = uiText[language];
   const currentAssetMeta = assetMeta[currentAsset];
@@ -1079,22 +1071,13 @@ function App() {
   }, [isStateHydrated, persistedAppState, telegramUser?.id]);
 
   useEffect(() => {
-    simulationStateRef.current = {
-      demoAmount,
-      demoPercent,
-      simulationTicks,
-      isDemoRunning
-    };
-  }, [demoAmount, demoPercent, isDemoRunning, simulationTicks]);
-
-  useEffect(() => {
-    if (!telegramUser?.id || !isStateHydrated || !hasPendingDeposit || isDemoRunning) {
+    if (!telegramUser?.id || !isStateHydrated || (!hasPendingDeposit && !isDemoRunning)) {
       return;
     }
 
     let cancelled = false;
 
-    const syncApprovedDeposit = async () => {
+    const syncLiveState = async () => {
       try {
         const response = await fetch(`/api/app-state/${telegramUser.id}`);
         const payload = await response.json().catch(() => ({}));
@@ -1103,81 +1086,23 @@ function App() {
           return;
         }
 
-        const nextState = payload.state;
-        const hasApprovalUpdate =
-          (Number(nextState.totalDeposited) || 0) > totalDeposited ||
-          (Number(nextState.simulationEpoch) || 0) > simulationEpoch ||
-          (Boolean(nextState.isDemoRunning) && !isDemoRunning);
-
-        if (hasApprovalUpdate) {
-          applyPersistedState(nextState);
-        }
+        applyPersistedState(payload.state);
       } catch {
         return;
       }
     };
 
-    syncApprovedDeposit();
-    const timer = window.setInterval(syncApprovedDeposit, 7000);
+    syncLiveState();
+    const timer = window.setInterval(syncLiveState, SIMULATION_STEP_MS);
 
     return () => {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [applyPersistedState, hasPendingDeposit, isDemoRunning, isStateHydrated, simulationEpoch, telegramUser?.id, totalDeposited]);
-
-  useEffect(() => {
-    if (!isDemoRunning || demoAmount <= 0) {
-      if (simulationRef.current) {
-        window.clearInterval(simulationRef.current);
-        simulationRef.current = null;
-      }
-      return;
-    }
-
-    if (simulationRef.current) {
-      window.clearInterval(simulationRef.current);
-    }
-
-    simulationRef.current = window.setInterval(() => {
-      const snapshot = simulationStateRef.current;
-
-      if (!snapshot.isDemoRunning || snapshot.demoAmount <= 0) {
-        return;
-      }
-
-      const delta = Math.random() * 1.8 - 0.7;
-      const nextPercent = Math.max(-1.5, Math.min(10, Number((snapshot.demoPercent + delta).toFixed(2))));
-      const nextProfit = Number(((snapshot.demoAmount * nextPercent) / 100).toFixed(2));
-      const tradeDelta = Number((0.1 + Math.random() * 0.1).toFixed(1));
-      const nextTick = snapshot.simulationTicks + 1;
-
-      setDemoPercent(nextPercent);
-      setDemoProfit(nextProfit);
-      setSimulationTicks(nextTick);
-      setTotalTraded((current) => Number((current + tradeDelta).toFixed(1)));
-
-      if (nextTick >= SIMULATION_MAX_STEPS || nextPercent >= 10) {
-        window.clearInterval(simulationRef.current);
-        simulationRef.current = null;
-        setDemoRunning(false);
-      }
-    }, SIMULATION_STEP_MS);
-
-    return () => {
-      if (simulationRef.current) {
-        window.clearInterval(simulationRef.current);
-        simulationRef.current = null;
-      }
-    };
-  }, [demoAmount, isDemoRunning, simulationEpoch]);
+  }, [applyPersistedState, hasPendingDeposit, isDemoRunning, isStateHydrated, telegramUser?.id]);
 
   useEffect(() => {
     return () => {
-      if (simulationRef.current) {
-        window.clearInterval(simulationRef.current);
-      }
-
       if (heroDismissRef.current) {
         window.clearTimeout(heroDismissRef.current);
       }

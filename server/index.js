@@ -7,6 +7,8 @@ import { fileURLToPath } from "url";
 
 const app = express();
 const port = Number(process.env.PORT || 3001);
+const SIMULATION_STEP_MS = 5000;
+const SIMULATION_MAX_STEPS = 24;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distPath = path.resolve(__dirname, "../dist");
@@ -19,6 +21,7 @@ let userStateCache = null;
 let pendingDepositsCache = null;
 let supportStateCache = null;
 let telegramPollingStarted = false;
+let simulationLoopStarted = false;
 let telegramUpdateOffset = 0;
 
 function toUserKey(value) {
@@ -178,6 +181,31 @@ function sanitizeActivityItem(item) {
   };
 }
 
+function roundToCents(value) {
+  return Number(Number(value || 0).toFixed(2));
+}
+
+function roundToTenths(value) {
+  return Number(Number(value || 0).toFixed(1));
+}
+
+function deterministicUnit(seed) {
+  const raw = Math.sin(seed) * 10000;
+  return raw - Math.floor(raw);
+}
+
+function getSimulationStep(epoch, tick) {
+  const safeEpoch = Number(epoch) || 0;
+  const safeTick = Number(tick) || 0;
+  const percentRoll = deterministicUnit(safeEpoch * 0.00013 + (safeTick + 1) * 12.9898);
+  const tradeRoll = deterministicUnit(safeEpoch * 0.00021 + (safeTick + 1) * 78.233);
+
+  return {
+    percentDelta: roundToCents(percentRoll * 1.8 - 0.7),
+    tradeDelta: roundToTenths(0.1 + tradeRoll * 0.1)
+  };
+}
+
 function sanitizeUserState(state = {}) {
   const validAssets = new Set(["lyn", "bitcoin", "ethereum"]);
   const activityFeed = Array.isArray(state.activityFeed)
@@ -208,6 +236,99 @@ function sanitizeUserState(state = {}) {
   };
 }
 
+function getComparableUserState(state = {}) {
+  const normalized = sanitizeUserState(state);
+
+  return {
+    currentAsset: normalized.currentAsset,
+    demoAmount: normalized.demoAmount,
+    demoProfit: normalized.demoProfit,
+    demoPercent: normalized.demoPercent,
+    totalDeposited: normalized.totalDeposited,
+    totalTraded: normalized.totalTraded,
+    isDemoRunning: normalized.isDemoRunning,
+    simulationEpoch: normalized.simulationEpoch,
+    simulationTicks: normalized.simulationTicks,
+    isHeroVisible: normalized.isHeroVisible,
+    activityFeed: normalized.activityFeed
+  };
+}
+
+function hasUserStateChanged(previousState, nextState) {
+  return JSON.stringify(getComparableUserState(previousState)) !== JSON.stringify(getComparableUserState(nextState));
+}
+
+function isIncomingSimulationAhead(existingState, incomingState) {
+  if (incomingState.simulationEpoch !== existingState.simulationEpoch) {
+    return incomingState.simulationEpoch > existingState.simulationEpoch;
+  }
+
+  return incomingState.simulationTicks >= existingState.simulationTicks;
+}
+
+function reconcileUserState(state = {}, now = Date.now()) {
+  const currentState = sanitizeUserState(state);
+
+  if (!currentState.isDemoRunning || currentState.demoAmount <= 0 || currentState.simulationEpoch <= 0) {
+    return currentState;
+  }
+
+  const elapsedTicks = Math.min(
+    SIMULATION_MAX_STEPS,
+    Math.floor(Math.max(0, now - currentState.simulationEpoch) / SIMULATION_STEP_MS)
+  );
+
+  if (elapsedTicks <= currentState.simulationTicks) {
+    return currentState;
+  }
+
+  let nextPercent =
+    Number(currentState.demoPercent) ||
+    (currentState.demoAmount > 0 ? roundToCents((currentState.demoProfit / currentState.demoAmount) * 100) : 0);
+  let nextTotalTraded = currentState.totalTraded;
+  let nextTicks = currentState.simulationTicks;
+  let nextIsDemoRunning = currentState.isDemoRunning;
+
+  for (let tick = currentState.simulationTicks; tick < elapsedTicks; tick += 1) {
+    const { percentDelta, tradeDelta } = getSimulationStep(currentState.simulationEpoch, tick);
+    nextPercent = Math.max(-1.5, Math.min(10, roundToCents(nextPercent + percentDelta)));
+    nextTotalTraded = roundToTenths(nextTotalTraded + tradeDelta);
+    nextTicks = tick + 1;
+
+    if (nextTicks >= SIMULATION_MAX_STEPS || nextPercent >= 10) {
+      nextIsDemoRunning = false;
+      break;
+    }
+  }
+
+  return sanitizeUserState({
+    ...currentState,
+    demoProfit: roundToCents((currentState.demoAmount * nextPercent) / 100),
+    demoPercent: nextPercent,
+    totalTraded: nextTotalTraded,
+    simulationTicks: nextTicks,
+    isDemoRunning: nextIsDemoRunning
+  });
+}
+
+async function advanceAllUserStates() {
+  const store = await readUserStateStore();
+  let changed = false;
+
+  for (const [userId, state] of Object.entries(store)) {
+    const reconciledState = reconcileUserState(state);
+
+    if (hasUserStateChanged(state, reconciledState)) {
+      store[userId] = reconciledState;
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    await writeUserStateStore(store);
+  }
+}
+
 function mergeActivityFeed(existing = [], incoming = []) {
   const seen = new Set();
 
@@ -227,20 +348,15 @@ function mergeActivityFeed(existing = [], incoming = []) {
 }
 
 function mergeUserState(existingState = {}, incomingState = {}) {
-  const existing = sanitizeUserState(existingState);
+  const existing = reconcileUserState(existingState);
   const incoming = sanitizeUserState(incomingState);
   const mergedDemoAmount = Math.max(existing.demoAmount, incoming.demoAmount);
   const mergedTotalDeposited = Math.max(existing.totalDeposited, incoming.totalDeposited);
-  const mergedTotalTraded = Math.max(existing.totalTraded, incoming.totalTraded);
-  const mergedDemoProfit = Number(incoming.demoProfit || existing.demoProfit || 0);
+  const simulationSource = isIncomingSimulationAhead(existing, incoming) ? incoming : existing;
+  const mergedTotalTraded = Math.max(existing.totalTraded, incoming.totalTraded, simulationSource.totalTraded);
+  const mergedDemoProfit = roundToCents(simulationSource.demoProfit);
   const mergedDemoPercent =
-    mergedDemoAmount > 0 ? Number(((mergedDemoProfit / mergedDemoAmount) * 100).toFixed(2)) : 0;
-  const mergedSimulationEpoch =
-    incoming.simulationEpoch >= existing.simulationEpoch ? incoming.simulationEpoch : existing.simulationEpoch;
-  const mergedSimulationTicks =
-    incoming.simulationEpoch >= existing.simulationEpoch ? incoming.simulationTicks : existing.simulationTicks;
-  const mergedIsDemoRunning =
-    incoming.simulationEpoch >= existing.simulationEpoch ? incoming.isDemoRunning : existing.isDemoRunning;
+    mergedDemoAmount > 0 ? roundToCents((mergedDemoProfit / mergedDemoAmount) * 100) : 0;
 
   return sanitizeUserState({
     currentAsset: incoming.currentAsset,
@@ -249,9 +365,9 @@ function mergeUserState(existingState = {}, incomingState = {}) {
     demoPercent: mergedDemoPercent,
     totalDeposited: mergedTotalDeposited,
     totalTraded: mergedTotalTraded,
-    isDemoRunning: mergedIsDemoRunning,
-    simulationEpoch: mergedSimulationEpoch,
-    simulationTicks: mergedSimulationTicks,
+    isDemoRunning: simulationSource.isDemoRunning,
+    simulationEpoch: simulationSource.simulationEpoch,
+    simulationTicks: simulationSource.simulationTicks,
     isHeroVisible: incoming.isHeroVisible,
     activityFeed: mergeActivityFeed(existing.activityFeed, incoming.activityFeed)
   });
@@ -857,9 +973,17 @@ app.get("/api/app-state/:userId", async (req, res) => {
 
   try {
     const store = await readUserStateStore();
+    const previousState = store[userId] || null;
+    const nextState = previousState ? reconcileUserState(previousState) : null;
+
+    if (previousState && hasUserStateChanged(previousState, nextState)) {
+      store[userId] = nextState;
+      await writeUserStateStore(store);
+    }
+
     return res.json({
       ok: true,
-      state: store[userId] || null
+      state: nextState
     });
   } catch (error) {
     return res.status(500).json({
@@ -905,12 +1029,19 @@ app.post("/api/app-state", async (req, res) => {
 
   try {
     const store = await readUserStateStore();
-    store[userId] = mergeUserState(store[userId], req.body?.state);
-    await writeUserStateStore(store);
+    const mergedState = mergeUserState(store[userId], req.body?.state);
+    const reconciledState = reconcileUserState(mergedState);
+    const shouldWrite = !store[userId] || hasUserStateChanged(store[userId], reconciledState);
+
+    store[userId] = reconciledState;
+
+    if (shouldWrite) {
+      await writeUserStateStore(store);
+    }
 
     return res.json({
       ok: true,
-      state: store[userId]
+      state: reconciledState
     });
   } catch (error) {
     return res.status(500).json({
@@ -1077,7 +1208,7 @@ app.post("/api/admin/deposits/approve", async (req, res) => {
     }
 
     const userStore = await readUserStateStore();
-    const currentState = sanitizeUserState(userStore[request.userId] || {});
+    const currentState = reconcileUserState(userStore[request.userId] || {});
     const amount = Number(request.amountUsd) || 0;
     const nextDemoAmount = Number((currentState.demoAmount + amount).toFixed(2));
     const nextTotalDeposited = Number((currentState.totalDeposited + amount).toFixed(2));
@@ -1142,6 +1273,20 @@ app.post("/api/admin/deposits/approve", async (req, res) => {
   }
 });
 
+function startSimulationLoop() {
+  if (simulationLoopStarted) {
+    return;
+  }
+
+  simulationLoopStarted = true;
+
+  setInterval(() => {
+    void advanceAllUserStates().catch((error) => {
+      console.error("Simulation loop error:", error.message || error);
+    });
+  }, SIMULATION_STEP_MS);
+}
+
 app.post("/api/bot/test", async (req, res) => {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_TEST_CHAT_ID;
@@ -1178,5 +1323,6 @@ app.get("/{*path}", (req, res, next) => {
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`Pegasus server listening on :${port}`);
+  startSimulationLoop();
   void startTelegramPolling();
 });
