@@ -45,6 +45,10 @@ body {
   animation: page-shift 16s ease-in-out infinite alternate;
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
 #root {
   display: flex;
   justify-content: center;
@@ -1321,8 +1325,11 @@ button:disabled {
   inset: 0;
   padding: 16px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   background: rgba(0, 0, 0, 0.6);
   z-index: 20;
   backdrop-filter: blur(16px);
@@ -1332,6 +1339,11 @@ button:disabled {
 
 .deposit-modal {
   width: min(100%, 380px);
+  max-height: calc(100dvh - 32px);
+  margin: auto 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   background:
     linear-gradient(180deg, rgba(24, 20, 38, 0.78), rgba(7, 11, 12, 0.34)),
     radial-gradient(circle at top left, rgba(138, 101, 255, 0.16), transparent 42%);

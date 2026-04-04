@@ -112,7 +112,6 @@ const uiText = {
         "Некоторые транзакции могут не пройти. Если средства не пришли в течение 20 минут, обязательно обратись в техподдержку и передай номер транзакции.",
       generate: "Сгенерировать кошелек",
       confirm: "Я перевел средства",
-      regenerate: "Сгенерировать заново",
       support: "Тех. поддержка",
       cancel: "Отмена",
       submit: "Пополнить баланс"
@@ -327,7 +326,6 @@ const uiText = {
         "Some transactions may fail. If funds do not arrive within 20 minutes, contact support and provide the transaction number.",
       generate: "Generate wallet",
       confirm: "I sent the funds",
-      regenerate: "Generate again",
       support: "Support",
       cancel: "Cancel",
       submit: "Fund balance"
@@ -765,6 +763,19 @@ function App() {
       window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
     }
   }, [language]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const isModalOpen = isDepositOpen || isExchangeOpen;
+    document.body.classList.toggle("modal-open", isModalOpen);
+
+    return () => {
+      document.body.classList.remove("modal-open");
+    };
+  }, [isDepositOpen, isExchangeOpen]);
 
   useEffect(() => {
     return () => {
@@ -1714,9 +1725,6 @@ function App() {
                     </div>
                     <p className="modal-note deposit-warning">{copy.modal.notice}</p>
                     <div className="deposit-detail-actions">
-                      <button className="ghost-link" type="button" onClick={generateDepositRequest}>
-                        {copy.modal.regenerate}
-                      </button>
                       <button
                         className="ghost-link support-link"
                         type="button"
