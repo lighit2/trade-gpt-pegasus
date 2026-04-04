@@ -146,8 +146,8 @@ function mergeUserState(existingState = {}, incomingState = {}) {
   });
 }
 
-function getAdminChatId() {
-  return toUserKey(process.env.TELEGRAM_ADMIN_CHAT_ID);
+function getAdminChatId(fallbackUserId = null) {
+  return toUserKey(process.env.TELEGRAM_ADMIN_CHAT_ID || process.env.TELEGRAM_TEST_CHAT_ID || fallbackUserId);
 }
 
 function isAdminUser(userId) {
@@ -477,7 +477,7 @@ app.post("/api/deposits/confirm", async (req, res) => {
   ].filter(Boolean);
 
   try {
-    const adminChatId = getAdminChatId();
+    const adminChatId = getAdminChatId(userId);
     let result = null;
     let notified = false;
 

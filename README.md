@@ -31,6 +31,8 @@ PORT=3001
 VITE_API_BASE_URL=https://your-render-service.onrender.com
 ```
 
+`TELEGRAM_ADMIN_CHAT_ID` is preferred for owner/admin notifications. If it is not set, the server falls back to `TELEGRAM_TEST_CHAT_ID`.
+
 ## Deploy
 
 ### Netlify
