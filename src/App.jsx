@@ -10,7 +10,8 @@ const HERO_DISMISS_MS = 420;
 const HOME_ACTION_DELAY_MS = 220;
 const WITHDRAW_UNLOCK_VOLUME = 1000;
 const DEPOSIT_GENERATION_DELAY_MS = 520;
-const SIMULATION_STEP_MS = 5000;
+const SIMULATION_STEP_MS = 1000;
+const LIVE_STATE_SYNC_MS = 5000;
 
 const depositAssetMeta = {
   BTC: {
@@ -572,6 +573,8 @@ const isBearishTrend = (trend) => /bear|down|跌|空/i.test(String(trend || ""))
 const roundToCents = (value) => Number(Number(value || 0).toFixed(2));
 const roundToThousandths = (value) => Number(Number(value || 0).toFixed(3));
 const roundToTenths = (value) => Number(Number(value || 0).toFixed(1));
+const roundToHundredths = (value) => Number(Number(value || 0).toFixed(2));
+const roundToFourDecimals = (value) => Number(Number(value || 0).toFixed(4));
 const deterministicUnit = (seed) => {
   const raw = Math.sin(seed) * 10000;
   return raw - Math.floor(raw);
@@ -583,12 +586,12 @@ const getSimulationStep = (epoch, tick) => {
   const percentRoll = deterministicUnit(safeEpoch * 0.00013 + (safeTick + 1) * 12.9898);
   const directionRoll = deterministicUnit(safeEpoch * 0.00029 + (safeTick + 1) * 19.117);
   const tradeRoll = deterministicUnit(safeEpoch * 0.00021 + (safeTick + 1) * 78.233);
-  const growthDelta = 0.038 + percentRoll * 0.032;
-  const pullbackDelta = 0.006 + percentRoll * 0.012;
+  const growthDelta = 0.007 + percentRoll * 0.007;
+  const pullbackDelta = 0.001 + percentRoll * 0.002;
 
   return {
-    percentDelta: roundToThousandths(directionRoll < 0.82 ? growthDelta : -pullbackDelta),
-    tradeDelta: roundToTenths(0.1 + tradeRoll * 0.1)
+    percentDelta: roundToThousandths(directionRoll < 0.86 ? growthDelta : -pullbackDelta),
+    tradeDelta: roundToHundredths(0.02 + tradeRoll * 0.03)
   };
 };
 
@@ -914,25 +917,28 @@ function App() {
       return null;
     }
 
-    let nextPercent =
-      Number(demoPercent) || (demoAmount > 0 ? roundToThousandths((demoProfit / demoAmount) * 100) : 0);
+    let nextProfit = roundToFourDecimals(demoProfit);
     let nextTotalTraded = totalTraded;
     let nextTicks = simulationTicks;
 
     for (let tick = simulationTicks; tick < elapsedTicks; tick += 1) {
       const { percentDelta, tradeDelta } = getSimulationStep(simulationEpoch, tick);
-      nextPercent = Math.max(-1.5, Math.min(10, roundToThousandths(nextPercent + percentDelta)));
-      nextTotalTraded = roundToTenths(nextTotalTraded + tradeDelta);
+      const currentBalance = Math.max(0, roundToFourDecimals(demoAmount + nextProfit));
+      const profitDelta = roundToFourDecimals(currentBalance * (percentDelta / 100));
+      nextProfit = roundToFourDecimals(nextProfit + profitDelta);
+      nextTotalTraded = roundToHundredths(nextTotalTraded + tradeDelta);
       nextTicks = tick + 1;
     }
 
+    const nextPercent = demoAmount > 0 ? roundToThousandths((nextProfit / demoAmount) * 100) : 0;
+
     return {
-      demoProfit: roundToCents((demoAmount * nextPercent) / 100),
+      demoProfit: nextProfit,
       demoPercent: nextPercent,
       totalTraded: nextTotalTraded,
       simulationTicks: nextTicks
     };
-  }, [demoAmount, demoPercent, demoProfit, isDemoRunning, simulationEpoch, simulationTicks, totalTraded]);
+  }, [demoAmount, demoProfit, isDemoRunning, simulationEpoch, simulationTicks, totalTraded]);
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
@@ -1146,7 +1152,7 @@ function App() {
     };
 
     syncLiveState();
-    const timer = window.setInterval(syncLiveState, SIMULATION_STEP_MS);
+    const timer = window.setInterval(syncLiveState, LIVE_STATE_SYNC_MS);
 
     return () => {
       cancelled = true;

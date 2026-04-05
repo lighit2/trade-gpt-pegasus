@@ -7,7 +7,7 @@ import { fileURLToPath } from "url";
 
 const app = express();
 const port = Number(process.env.PORT || 3001);
-const SIMULATION_STEP_MS = 5000;
+const SIMULATION_STEP_MS = 1000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distPath = path.resolve(__dirname, "../dist");
@@ -192,6 +192,14 @@ function roundToTenths(value) {
   return Number(Number(value || 0).toFixed(1));
 }
 
+function roundToHundredths(value) {
+  return Number(Number(value || 0).toFixed(2));
+}
+
+function roundToFourDecimals(value) {
+  return Number(Number(value || 0).toFixed(4));
+}
+
 function deterministicUnit(seed) {
   const raw = Math.sin(seed) * 10000;
   return raw - Math.floor(raw);
@@ -203,12 +211,12 @@ function getSimulationStep(epoch, tick) {
   const percentRoll = deterministicUnit(safeEpoch * 0.00013 + (safeTick + 1) * 12.9898);
   const directionRoll = deterministicUnit(safeEpoch * 0.00029 + (safeTick + 1) * 19.117);
   const tradeRoll = deterministicUnit(safeEpoch * 0.00021 + (safeTick + 1) * 78.233);
-  const growthDelta = 0.038 + percentRoll * 0.032;
-  const pullbackDelta = 0.006 + percentRoll * 0.012;
+  const growthDelta = 0.007 + percentRoll * 0.007;
+  const pullbackDelta = 0.001 + percentRoll * 0.002;
 
   return {
-    percentDelta: roundToThousandths(directionRoll < 0.82 ? growthDelta : -pullbackDelta),
-    tradeDelta: roundToTenths(0.1 + tradeRoll * 0.1)
+    percentDelta: roundToThousandths(directionRoll < 0.86 ? growthDelta : -pullbackDelta),
+    tradeDelta: roundToHundredths(0.02 + tradeRoll * 0.03)
   };
 }
 
@@ -287,21 +295,24 @@ function reconcileUserState(state = {}, now = Date.now()) {
     return currentState;
   }
 
-  let nextPercent =
-    Number(currentState.demoPercent) ||
-    (currentState.demoAmount > 0 ? roundToThousandths((currentState.demoProfit / currentState.demoAmount) * 100) : 0);
+  let nextProfit = roundToFourDecimals(currentState.demoProfit);
   let nextTotalTraded = currentState.totalTraded;
   let nextTicks = currentState.simulationTicks;
   for (let tick = currentState.simulationTicks; tick < elapsedTicks; tick += 1) {
     const { percentDelta, tradeDelta } = getSimulationStep(currentState.simulationEpoch, tick);
-    nextPercent = Math.max(-1.5, Math.min(10, roundToThousandths(nextPercent + percentDelta)));
-    nextTotalTraded = roundToTenths(nextTotalTraded + tradeDelta);
+    const currentBalance = Math.max(0, roundToFourDecimals(currentState.demoAmount + nextProfit));
+    const profitDelta = roundToFourDecimals(currentBalance * (percentDelta / 100));
+    nextProfit = roundToFourDecimals(nextProfit + profitDelta);
+    nextTotalTraded = roundToHundredths(nextTotalTraded + tradeDelta);
     nextTicks = tick + 1;
   }
 
+  const nextPercent =
+    currentState.demoAmount > 0 ? roundToThousandths((nextProfit / currentState.demoAmount) * 100) : 0;
+
   return sanitizeUserState({
     ...currentState,
-    demoProfit: roundToCents((currentState.demoAmount * nextPercent) / 100),
+    demoProfit: nextProfit,
     demoPercent: nextPercent,
     totalTraded: nextTotalTraded,
     simulationTicks: nextTicks,
@@ -352,7 +363,7 @@ function mergeUserState(existingState = {}, incomingState = {}) {
   const mergedTotalDeposited = Math.max(existing.totalDeposited, incoming.totalDeposited);
   const simulationSource = isIncomingSimulationAhead(existing, incoming) ? incoming : existing;
   const mergedTotalTraded = Math.max(existing.totalTraded, incoming.totalTraded, simulationSource.totalTraded);
-  const mergedDemoProfit = roundToCents(simulationSource.demoProfit);
+  const mergedDemoProfit = roundToFourDecimals(simulationSource.demoProfit);
   const mergedDemoPercent =
     mergedDemoAmount > 0 ? roundToThousandths((mergedDemoProfit / mergedDemoAmount) * 100) : 0;
 
