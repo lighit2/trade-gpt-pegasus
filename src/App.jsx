@@ -13,6 +13,8 @@ const DEPOSIT_GENERATION_DELAY_MS = 520;
 const SIMULATION_STEP_MS = 1000;
 const LIVE_STATE_SYNC_MS = 5000;
 const METRIC_ANIMATION_MS = 480;
+const RETRACE_START_PERCENT = 15;
+const RETRACE_STEP_PERCENT = 5;
 
 const depositAssetMeta = {
   BTC: {
@@ -605,6 +607,37 @@ const getSimulationStep = (epoch, tick) => {
   };
 };
 
+const applyProfitRetrace = (demoAmount, nextProfit, lastRetraceThreshold) => {
+  const safeAmount = Number(demoAmount) || 0;
+  const safeThreshold = Number(lastRetraceThreshold) || 0;
+
+  if (safeAmount <= 0) {
+    return {
+      nextProfit: roundToFourDecimals(nextProfit),
+      nextPercent: 0,
+      lastRetraceThreshold: safeThreshold
+    };
+  }
+
+  let adjustedProfit = roundToFourDecimals(nextProfit);
+  let adjustedPercent = roundToThousandths((adjustedProfit / safeAmount) * 100);
+  let appliedThreshold = safeThreshold;
+  let nextThreshold = safeThreshold >= RETRACE_START_PERCENT ? safeThreshold + RETRACE_STEP_PERCENT : RETRACE_START_PERCENT;
+
+  while (adjustedPercent >= nextThreshold) {
+    adjustedPercent = roundToThousandths(nextThreshold / 2);
+    adjustedProfit = roundToFourDecimals((safeAmount * adjustedPercent) / 100);
+    appliedThreshold = nextThreshold;
+    nextThreshold += RETRACE_STEP_PERCENT;
+  }
+
+  return {
+    nextProfit: adjustedProfit,
+    nextPercent: adjustedPercent,
+    lastRetraceThreshold: appliedThreshold
+  };
+};
+
 const localizeTrend = (trend, copy) =>
   isBearishTrend(trend) ? copy.marketStatus.bearish : copy.marketStatus.bullish;
 
@@ -648,6 +681,7 @@ function App() {
   const [demoPercent, setDemoPercent] = useState(0);
   const [totalDeposited, setTotalDeposited] = useState(0);
   const [totalTraded, setTotalTraded] = useState(0);
+  const [lastRetraceThreshold, setLastRetraceThreshold] = useState(0);
   const [balanceSyncToken, setBalanceSyncToken] = useState(0);
   const [isDemoRunning, setDemoRunning] = useState(false);
   const [simulationEpoch, setSimulationEpoch] = useState(0);
@@ -710,6 +744,7 @@ function App() {
       demoPercent,
       totalDeposited,
       totalTraded,
+      lastRetraceThreshold,
       balanceSyncToken,
       isDemoRunning,
       simulationEpoch,
@@ -725,6 +760,7 @@ function App() {
       demoProfit,
       isDemoRunning,
       isHeroVisible,
+      lastRetraceThreshold,
       balanceSyncToken,
       simulationEpoch,
       simulationTicks,
@@ -915,6 +951,7 @@ function App() {
     const nextDemoPercent = Number(state.demoPercent) || 0;
     const nextTotalDeposited = Number(state.totalDeposited) || 0;
     const nextTotalTraded = Number(state.totalTraded) || 0;
+    const nextLastRetraceThreshold = Number(state.lastRetraceThreshold) || 0;
     const nextBalanceSyncToken = Number(state.balanceSyncToken) || 0;
     const nextSimulationEpoch = Number(state.simulationEpoch) || 0;
     const nextSimulationTicks = Math.max(0, Number(state.simulationTicks) || 0);
@@ -931,6 +968,7 @@ function App() {
     setDemoPercent(nextDemoPercent);
     setTotalDeposited(nextTotalDeposited);
     setTotalTraded(nextTotalTraded);
+    setLastRetraceThreshold(nextLastRetraceThreshold);
     setBalanceSyncToken(nextBalanceSyncToken);
     setSimulationEpoch(nextSimulationEpoch || (legacyResume ? Date.now() : 0));
     setSimulationTicks(nextSimulationTicks);
@@ -953,10 +991,14 @@ function App() {
     let nextProfit = roundToFourDecimals(demoProfit);
     let nextTotalTraded = totalTraded;
     let nextTicks = simulationTicks;
+    let nextLastRetraceThreshold = lastRetraceThreshold;
 
     for (let tick = simulationTicks; tick < elapsedTicks; tick += 1) {
       const { profitDelta, tradeDelta } = getSimulationStep(simulationEpoch, tick);
       nextProfit = Math.max(0, roundToFourDecimals(nextProfit + profitDelta));
+      const retraced = applyProfitRetrace(demoAmount, nextProfit, nextLastRetraceThreshold);
+      nextProfit = retraced.nextProfit;
+      nextLastRetraceThreshold = retraced.lastRetraceThreshold;
       nextTotalTraded = roundToHundredths(nextTotalTraded + tradeDelta);
       nextTicks = tick + 1;
     }
@@ -967,9 +1009,10 @@ function App() {
       demoProfit: nextProfit,
       demoPercent: nextPercent,
       totalTraded: nextTotalTraded,
+      lastRetraceThreshold: nextLastRetraceThreshold,
       simulationTicks: nextTicks
     };
-  }, [demoAmount, demoProfit, isDemoRunning, simulationEpoch, simulationTicks, totalTraded]);
+  }, [demoAmount, demoProfit, isDemoRunning, lastRetraceThreshold, simulationEpoch, simulationTicks, totalTraded]);
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
@@ -1206,6 +1249,7 @@ function App() {
       setDemoProfit(nextState.demoProfit);
       setDemoPercent(nextState.demoPercent);
       setTotalTraded(nextState.totalTraded);
+      setLastRetraceThreshold(nextState.lastRetraceThreshold);
       setSimulationTicks(nextState.simulationTicks);
     };
 

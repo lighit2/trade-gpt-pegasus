@@ -8,6 +8,8 @@ import { fileURLToPath } from "url";
 const app = express();
 const port = Number(process.env.PORT || 3001);
 const SIMULATION_STEP_MS = 1000;
+const RETRACE_START_PERCENT = 15;
+const RETRACE_STEP_PERCENT = 5;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distPath = path.resolve(__dirname, "../dist");
@@ -229,6 +231,37 @@ function getSimulationStep(epoch, tick) {
   };
 }
 
+function applyProfitRetrace(demoAmount, nextProfit, lastRetraceThreshold) {
+  const safeAmount = Number(demoAmount) || 0;
+  const safeThreshold = Number(lastRetraceThreshold) || 0;
+
+  if (safeAmount <= 0) {
+    return {
+      nextProfit: roundToFourDecimals(nextProfit),
+      nextPercent: 0,
+      lastRetraceThreshold: safeThreshold
+    };
+  }
+
+  let adjustedProfit = roundToFourDecimals(nextProfit);
+  let adjustedPercent = roundToThousandths((adjustedProfit / safeAmount) * 100);
+  let appliedThreshold = safeThreshold;
+  let nextThreshold = safeThreshold >= RETRACE_START_PERCENT ? safeThreshold + RETRACE_STEP_PERCENT : RETRACE_START_PERCENT;
+
+  while (adjustedPercent >= nextThreshold) {
+    adjustedPercent = roundToThousandths(nextThreshold / 2);
+    adjustedProfit = roundToFourDecimals((safeAmount * adjustedPercent) / 100);
+    appliedThreshold = nextThreshold;
+    nextThreshold += RETRACE_STEP_PERCENT;
+  }
+
+  return {
+    nextProfit: adjustedProfit,
+    nextPercent: adjustedPercent,
+    lastRetraceThreshold: appliedThreshold
+  };
+}
+
 function sanitizeUserState(state = {}) {
   const validAssets = new Set(["lyn", "bitcoin", "ethereum"]);
   const activityFeed = Array.isArray(state.activityFeed)
@@ -250,6 +283,7 @@ function sanitizeUserState(state = {}) {
     demoPercent: Number(state.demoPercent) || 0,
     totalDeposited,
     totalTraded,
+    lastRetraceThreshold: Number(state.lastRetraceThreshold) || 0,
     balanceSyncToken: Number(state.balanceSyncToken) || 0,
     isDemoRunning: Boolean(state.isDemoRunning) || legacyRunning,
     simulationEpoch: Number(state.simulationEpoch) || 0,
@@ -270,6 +304,7 @@ function getComparableUserState(state = {}) {
     demoPercent: normalized.demoPercent,
     totalDeposited: normalized.totalDeposited,
     totalTraded: normalized.totalTraded,
+    lastRetraceThreshold: normalized.lastRetraceThreshold,
     balanceSyncToken: normalized.balanceSyncToken,
     isDemoRunning: normalized.isDemoRunning,
     simulationEpoch: normalized.simulationEpoch,
@@ -309,9 +344,13 @@ function reconcileUserState(state = {}, now = Date.now()) {
   let nextProfit = roundToFourDecimals(currentState.demoProfit);
   let nextTotalTraded = currentState.totalTraded;
   let nextTicks = currentState.simulationTicks;
+  let nextLastRetraceThreshold = currentState.lastRetraceThreshold;
   for (let tick = currentState.simulationTicks; tick < elapsedTicks; tick += 1) {
     const { profitDelta, tradeDelta } = getSimulationStep(currentState.simulationEpoch, tick);
     nextProfit = Math.max(0, roundToFourDecimals(nextProfit + profitDelta));
+    const retraced = applyProfitRetrace(currentState.demoAmount, nextProfit, nextLastRetraceThreshold);
+    nextProfit = retraced.nextProfit;
+    nextLastRetraceThreshold = retraced.lastRetraceThreshold;
     nextTotalTraded = roundToHundredths(nextTotalTraded + tradeDelta);
     nextTicks = tick + 1;
   }
@@ -324,6 +363,7 @@ function reconcileUserState(state = {}, now = Date.now()) {
     demoProfit: nextProfit,
     demoPercent: nextPercent,
     totalTraded: nextTotalTraded,
+    lastRetraceThreshold: nextLastRetraceThreshold,
     simulationTicks: nextTicks,
     isDemoRunning: currentState.isDemoRunning
   });
@@ -385,6 +425,9 @@ function mergeUserState(existingState = {}, incomingState = {}) {
   const mergedDemoProfit = roundToFourDecimals(canMergeFinancials ? simulationSource.demoProfit : existing.demoProfit);
   const mergedDemoPercent =
     mergedDemoAmount > 0 ? roundToThousandths((mergedDemoProfit / mergedDemoAmount) * 100) : 0;
+  const mergedLastRetraceThreshold = canMergeFinancials
+    ? Math.max(existing.lastRetraceThreshold, incoming.lastRetraceThreshold, simulationSource.lastRetraceThreshold)
+    : existing.lastRetraceThreshold;
 
   return sanitizeUserState({
     currentAsset: incoming.currentAsset,
@@ -393,6 +436,7 @@ function mergeUserState(existingState = {}, incomingState = {}) {
     demoPercent: mergedDemoPercent,
     totalDeposited: mergedTotalDeposited,
     totalTraded: mergedTotalTraded,
+    lastRetraceThreshold: mergedLastRetraceThreshold,
     balanceSyncToken: Math.max(existing.balanceSyncToken, incoming.balanceSyncToken),
     isDemoRunning: simulationSource.isDemoRunning,
     simulationEpoch: simulationSource.simulationEpoch,
@@ -1166,6 +1210,7 @@ app.post("/api/admin/users/reset-balance", async (req, res) => {
       demoPercent: 0,
       totalDeposited: 0,
       totalTraded: 0,
+      lastRetraceThreshold: 0,
       balanceSyncToken: Date.now(),
       isDemoRunning: false,
       simulationEpoch: 0,
