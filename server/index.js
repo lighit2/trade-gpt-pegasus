@@ -1123,6 +1123,70 @@ app.post("/api/app-state", async (req, res) => {
   }
 });
 
+app.post("/api/admin/users/reset-balance", async (req, res) => {
+  const adminUserId = toUserKey(req.body?.adminUserId);
+  const targetUserId = toUserKey(req.body?.targetUserId);
+
+  if (!isAdminUser(adminUserId)) {
+    return res.status(403).json({
+      error: "Admin access required"
+    });
+  }
+
+  if (!targetUserId) {
+    return res.status(400).json({
+      error: "Missing target user id"
+    });
+  }
+
+  try {
+    const userStore = await readUserStateStore();
+    const currentState = sanitizeUserState(userStore[targetUserId] || {});
+    const nextActivityFeed = (currentState.activityFeed || []).filter(
+      (item) => item.type !== "deposit" && item.type !== "deposit-pending"
+    );
+
+    userStore[targetUserId] = sanitizeUserState({
+      ...currentState,
+      demoAmount: 0,
+      demoProfit: 0,
+      demoPercent: 0,
+      totalDeposited: 0,
+      totalTraded: 0,
+      isDemoRunning: false,
+      simulationEpoch: 0,
+      simulationTicks: 0,
+      activityFeed: nextActivityFeed
+    });
+    await writeUserStateStore(userStore);
+
+    const pendingStore = await readPendingDepositsStore();
+    let removedPendingCount = 0;
+
+    for (const [ticket, request] of Object.entries(pendingStore)) {
+      if (request?.userId === targetUserId && request?.status === "pending") {
+        delete pendingStore[ticket];
+        removedPendingCount += 1;
+      }
+    }
+
+    if (removedPendingCount > 0) {
+      await writePendingDepositsStore(pendingStore);
+    }
+
+    return res.json({
+      ok: true,
+      userId: targetUserId,
+      removedPendingCount,
+      state: userStore[targetUserId]
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message || "Failed to reset user balance"
+    });
+  }
+});
+
 app.post("/api/support/request", async (req, res) => {
   const userId = toUserKey(req.body?.userId);
   const user = req.body?.user || {};
