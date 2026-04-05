@@ -2322,7 +2322,7 @@ function App() {
               aria-pressed={language === "zh"}
               onClick={() => setLanguage("zh")}
             >
-              ZH
+              中文
             </button>
           </div>
         </div>
