@@ -583,14 +583,14 @@ const deterministicUnit = (seed) => {
 const getSimulationStep = (epoch, tick) => {
   const safeEpoch = Number(epoch) || 0;
   const safeTick = Number(tick) || 0;
-  const percentRoll = deterministicUnit(safeEpoch * 0.00013 + (safeTick + 1) * 12.9898);
+  const profitRoll = deterministicUnit(safeEpoch * 0.00013 + (safeTick + 1) * 12.9898);
   const directionRoll = deterministicUnit(safeEpoch * 0.00029 + (safeTick + 1) * 19.117);
   const tradeRoll = deterministicUnit(safeEpoch * 0.00021 + (safeTick + 1) * 78.233);
-  const growthDelta = 0.007 + percentRoll * 0.007;
-  const pullbackDelta = 0.001 + percentRoll * 0.002;
+  const growthDelta = 0.1 + profitRoll * 0.02;
+  const pullbackDelta = 0.01 + profitRoll * 0.025;
 
   return {
-    percentDelta: roundToThousandths(directionRoll < 0.86 ? growthDelta : -pullbackDelta),
+    profitDelta: roundToFourDecimals(directionRoll < 0.88 ? growthDelta : -pullbackDelta),
     tradeDelta: roundToHundredths(0.02 + tradeRoll * 0.03)
   };
 };
@@ -922,10 +922,8 @@ function App() {
     let nextTicks = simulationTicks;
 
     for (let tick = simulationTicks; tick < elapsedTicks; tick += 1) {
-      const { percentDelta, tradeDelta } = getSimulationStep(simulationEpoch, tick);
-      const currentBalance = Math.max(0, roundToFourDecimals(demoAmount + nextProfit));
-      const profitDelta = roundToFourDecimals(currentBalance * (percentDelta / 100));
-      nextProfit = roundToFourDecimals(nextProfit + profitDelta);
+      const { profitDelta, tradeDelta } = getSimulationStep(simulationEpoch, tick);
+      nextProfit = Math.max(0, roundToFourDecimals(nextProfit + profitDelta));
       nextTotalTraded = roundToHundredths(nextTotalTraded + tradeDelta);
       nextTicks = tick + 1;
     }
