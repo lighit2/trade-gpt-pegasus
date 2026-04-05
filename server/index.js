@@ -211,11 +211,20 @@ function getSimulationStep(epoch, tick) {
   const profitRoll = deterministicUnit(safeEpoch * 0.00013 + (safeTick + 1) * 12.9898);
   const directionRoll = deterministicUnit(safeEpoch * 0.00029 + (safeTick + 1) * 19.117);
   const tradeRoll = deterministicUnit(safeEpoch * 0.00021 + (safeTick + 1) * 78.233);
-  const growthDelta = 0.1 + profitRoll * 0.02;
-  const pullbackDelta = 0.01 + profitRoll * 0.025;
+  const growthDelta = 0.04 + profitRoll * 0.016;
+  const pullbackDelta = 0.007 + profitRoll * 0.006;
+  const shockDelta = 0.024 + profitRoll * 0.012;
+
+  let profitDelta = growthDelta;
+
+  if (directionRoll >= 0.9) {
+    profitDelta = -shockDelta;
+  } else if (directionRoll >= 0.7) {
+    profitDelta = -pullbackDelta;
+  }
 
   return {
-    profitDelta: roundToFourDecimals(directionRoll < 0.88 ? growthDelta : -pullbackDelta),
+    profitDelta: roundToFourDecimals(profitDelta),
     tradeDelta: roundToHundredths(0.02 + tradeRoll * 0.03)
   };
 }
