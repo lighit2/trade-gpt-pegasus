@@ -648,6 +648,7 @@ function App() {
   const [demoPercent, setDemoPercent] = useState(0);
   const [totalDeposited, setTotalDeposited] = useState(0);
   const [totalTraded, setTotalTraded] = useState(0);
+  const [balanceSyncToken, setBalanceSyncToken] = useState(0);
   const [isDemoRunning, setDemoRunning] = useState(false);
   const [simulationEpoch, setSimulationEpoch] = useState(0);
   const [simulationTicks, setSimulationTicks] = useState(0);
@@ -709,6 +710,7 @@ function App() {
       demoPercent,
       totalDeposited,
       totalTraded,
+      balanceSyncToken,
       isDemoRunning,
       simulationEpoch,
       simulationTicks,
@@ -723,6 +725,7 @@ function App() {
       demoProfit,
       isDemoRunning,
       isHeroVisible,
+      balanceSyncToken,
       simulationEpoch,
       simulationTicks,
       totalDeposited,
@@ -912,6 +915,7 @@ function App() {
     const nextDemoPercent = Number(state.demoPercent) || 0;
     const nextTotalDeposited = Number(state.totalDeposited) || 0;
     const nextTotalTraded = Number(state.totalTraded) || 0;
+    const nextBalanceSyncToken = Number(state.balanceSyncToken) || 0;
     const nextSimulationEpoch = Number(state.simulationEpoch) || 0;
     const nextSimulationTicks = Math.max(0, Number(state.simulationTicks) || 0);
     const legacyResume =
@@ -927,6 +931,7 @@ function App() {
     setDemoPercent(nextDemoPercent);
     setTotalDeposited(nextTotalDeposited);
     setTotalTraded(nextTotalTraded);
+    setBalanceSyncToken(nextBalanceSyncToken);
     setSimulationEpoch(nextSimulationEpoch || (legacyResume ? Date.now() : 0));
     setSimulationTicks(nextSimulationTicks);
     setHeroVisible(state.isHeroVisible !== false);

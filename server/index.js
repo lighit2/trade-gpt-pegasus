@@ -250,6 +250,7 @@ function sanitizeUserState(state = {}) {
     demoPercent: Number(state.demoPercent) || 0,
     totalDeposited,
     totalTraded,
+    balanceSyncToken: Number(state.balanceSyncToken) || 0,
     isDemoRunning: Boolean(state.isDemoRunning) || legacyRunning,
     simulationEpoch: Number(state.simulationEpoch) || 0,
     simulationTicks: Math.max(0, Number(state.simulationTicks) || 0),
@@ -269,6 +270,7 @@ function getComparableUserState(state = {}) {
     demoPercent: normalized.demoPercent,
     totalDeposited: normalized.totalDeposited,
     totalTraded: normalized.totalTraded,
+    balanceSyncToken: normalized.balanceSyncToken,
     isDemoRunning: normalized.isDemoRunning,
     simulationEpoch: normalized.simulationEpoch,
     simulationTicks: normalized.simulationTicks,
@@ -366,11 +368,21 @@ function mergeActivityFeed(existing = [], incoming = []) {
 function mergeUserState(existingState = {}, incomingState = {}) {
   const existing = reconcileUserState(existingState);
   const incoming = sanitizeUserState(incomingState);
-  const mergedDemoAmount = Math.max(existing.demoAmount, incoming.demoAmount);
-  const mergedTotalDeposited = Math.max(existing.totalDeposited, incoming.totalDeposited);
-  const simulationSource = isIncomingSimulationAhead(existing, incoming) ? incoming : existing;
-  const mergedTotalTraded = Math.max(existing.totalTraded, incoming.totalTraded, simulationSource.totalTraded);
-  const mergedDemoProfit = roundToFourDecimals(simulationSource.demoProfit);
+  const hasExistingState = Boolean(existingState && Object.keys(existingState).length);
+  const canMergeFinancials =
+    !hasExistingState ||
+    existing.balanceSyncToken === 0 ||
+    existing.balanceSyncToken === incoming.balanceSyncToken;
+  const mergedDemoAmount = canMergeFinancials ? Math.max(existing.demoAmount, incoming.demoAmount) : existing.demoAmount;
+  const mergedTotalDeposited = canMergeFinancials
+    ? Math.max(existing.totalDeposited, incoming.totalDeposited)
+    : existing.totalDeposited;
+  const simulationSource =
+    canMergeFinancials && isIncomingSimulationAhead(existing, incoming) ? incoming : existing;
+  const mergedTotalTraded = canMergeFinancials
+    ? Math.max(existing.totalTraded, incoming.totalTraded, simulationSource.totalTraded)
+    : existing.totalTraded;
+  const mergedDemoProfit = roundToFourDecimals(canMergeFinancials ? simulationSource.demoProfit : existing.demoProfit);
   const mergedDemoPercent =
     mergedDemoAmount > 0 ? roundToThousandths((mergedDemoProfit / mergedDemoAmount) * 100) : 0;
 
@@ -381,11 +393,12 @@ function mergeUserState(existingState = {}, incomingState = {}) {
     demoPercent: mergedDemoPercent,
     totalDeposited: mergedTotalDeposited,
     totalTraded: mergedTotalTraded,
+    balanceSyncToken: Math.max(existing.balanceSyncToken, incoming.balanceSyncToken),
     isDemoRunning: simulationSource.isDemoRunning,
     simulationEpoch: simulationSource.simulationEpoch,
     simulationTicks: simulationSource.simulationTicks,
     isHeroVisible: incoming.isHeroVisible,
-    activityFeed: mergeActivityFeed(existing.activityFeed, incoming.activityFeed)
+    activityFeed: canMergeFinancials ? mergeActivityFeed(existing.activityFeed, incoming.activityFeed) : existing.activityFeed
   });
 }
 
@@ -1153,6 +1166,7 @@ app.post("/api/admin/users/reset-balance", async (req, res) => {
       demoPercent: 0,
       totalDeposited: 0,
       totalTraded: 0,
+      balanceSyncToken: Date.now(),
       isDemoRunning: false,
       simulationEpoch: 0,
       simulationTicks: 0,
