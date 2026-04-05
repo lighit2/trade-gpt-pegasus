@@ -569,6 +569,29 @@ const getInitialLanguage = () => {
 
 const isBearishTrend = (trend) => /bear|down|跌|空/i.test(String(trend || ""));
 
+const roundToCents = (value) => Number(Number(value || 0).toFixed(2));
+const roundToThousandths = (value) => Number(Number(value || 0).toFixed(3));
+const roundToTenths = (value) => Number(Number(value || 0).toFixed(1));
+const deterministicUnit = (seed) => {
+  const raw = Math.sin(seed) * 10000;
+  return raw - Math.floor(raw);
+};
+
+const getSimulationStep = (epoch, tick) => {
+  const safeEpoch = Number(epoch) || 0;
+  const safeTick = Number(tick) || 0;
+  const percentRoll = deterministicUnit(safeEpoch * 0.00013 + (safeTick + 1) * 12.9898);
+  const directionRoll = deterministicUnit(safeEpoch * 0.00029 + (safeTick + 1) * 19.117);
+  const tradeRoll = deterministicUnit(safeEpoch * 0.00021 + (safeTick + 1) * 78.233);
+  const growthDelta = 0.038 + percentRoll * 0.032;
+  const pullbackDelta = 0.006 + percentRoll * 0.012;
+
+  return {
+    percentDelta: roundToThousandths(directionRoll < 0.82 ? growthDelta : -pullbackDelta),
+    tradeDelta: roundToTenths(0.1 + tradeRoll * 0.1)
+  };
+};
+
 const localizeTrend = (trend, copy) =>
   isBearishTrend(trend) ? copy.marketStatus.bearish : copy.marketStatus.bullish;
 
@@ -880,6 +903,37 @@ function App() {
     setDemoRunning(nextDemoRunning && nextDemoAmount > 0);
   }, []);
 
+  const reconcileLocalSimulationState = useCallback(() => {
+    if (!isDemoRunning || demoAmount <= 0 || simulationEpoch <= 0) {
+      return null;
+    }
+
+    const elapsedTicks = Math.floor(Math.max(0, Date.now() - simulationEpoch) / SIMULATION_STEP_MS);
+
+    if (elapsedTicks <= simulationTicks) {
+      return null;
+    }
+
+    let nextPercent =
+      Number(demoPercent) || (demoAmount > 0 ? roundToThousandths((demoProfit / demoAmount) * 100) : 0);
+    let nextTotalTraded = totalTraded;
+    let nextTicks = simulationTicks;
+
+    for (let tick = simulationTicks; tick < elapsedTicks; tick += 1) {
+      const { percentDelta, tradeDelta } = getSimulationStep(simulationEpoch, tick);
+      nextPercent = Math.max(-1.5, Math.min(10, roundToThousandths(nextPercent + percentDelta)));
+      nextTotalTraded = roundToTenths(nextTotalTraded + tradeDelta);
+      nextTicks = tick + 1;
+    }
+
+    return {
+      demoProfit: roundToCents((demoAmount * nextPercent) / 100),
+      demoPercent: nextPercent,
+      totalTraded: nextTotalTraded,
+      simulationTicks: nextTicks
+    };
+  }, [demoAmount, demoPercent, demoProfit, isDemoRunning, simulationEpoch, simulationTicks, totalTraded]);
+
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
 
@@ -1099,6 +1153,32 @@ function App() {
       window.clearInterval(timer);
     };
   }, [applyPersistedState, demoAmount, hasPendingDeposit, isStateHydrated, telegramUser?.id]);
+
+  useEffect(() => {
+    if (!isStateHydrated || !isDemoRunning || demoAmount <= 0 || simulationEpoch <= 0) {
+      return;
+    }
+
+    const applyRuntimeTick = () => {
+      const nextState = reconcileLocalSimulationState();
+
+      if (!nextState) {
+        return;
+      }
+
+      setDemoProfit(nextState.demoProfit);
+      setDemoPercent(nextState.demoPercent);
+      setTotalTraded(nextState.totalTraded);
+      setSimulationTicks(nextState.simulationTicks);
+    };
+
+    applyRuntimeTick();
+    const timer = window.setInterval(applyRuntimeTick, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [demoAmount, isDemoRunning, isStateHydrated, reconcileLocalSimulationState, simulationEpoch]);
 
   useEffect(() => {
     return () => {
