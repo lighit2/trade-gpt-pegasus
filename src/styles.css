@@ -605,6 +605,7 @@ button:disabled {
   font-size: 34px;
   line-height: 1;
   letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
 }
 
 .balance-metric-row {
@@ -626,6 +627,7 @@ button:disabled {
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
     linear-gradient(180deg, rgba(138, 101, 255, 0.14), rgba(91, 255, 162, 0.08)),
@@ -806,6 +808,7 @@ button:disabled {
 .profit-badge-mini strong {
   display: block;
   margin-top: 3px;
+  font-variant-numeric: tabular-nums;
 }
 
 .chart-panel {
@@ -1172,6 +1175,7 @@ button:disabled {
   display: block;
   margin-top: 6px;
   font-size: 18px;
+  font-variant-numeric: tabular-nums;
 }
 
 .signal-item .signal-side {

@@ -12,6 +12,7 @@ const WITHDRAW_UNLOCK_VOLUME = 1000;
 const DEPOSIT_GENERATION_DELAY_MS = 520;
 const SIMULATION_STEP_MS = 1000;
 const LIVE_STATE_SYNC_MS = 5000;
+const METRIC_ANIMATION_MS = 480;
 
 const depositAssetMeta = {
   BTC: {
@@ -667,14 +668,32 @@ function App() {
   const [pendingDeposits, setPendingDeposits] = useState([]);
   const [isAdminLoading, setAdminLoading] = useState(false);
   const [approvingTicket, setApprovingTicket] = useState(null);
+  const [displayMetrics, setDisplayMetrics] = useState({
+    balance: 0,
+    profit: 0,
+    percent: 0,
+    traded: 0
+  });
   const heroDismissRef = useRef(null);
   const tabTransitionRef = useRef(null);
   const actionDelayRef = useRef(null);
   const depositGenerationRef = useRef(null);
+  const metricAnimationRef = useRef(null);
+  const displayMetricsRef = useRef({
+    balance: 0,
+    profit: 0,
+    percent: 0,
+    traded: 0
+  });
+  const hasAnimatedMetricsRef = useRef(false);
 
   const copy = uiText[language];
   const currentAssetMeta = assetMeta[currentAsset];
   const balance = demoAmount + demoProfit;
+  const animatedBalance = displayMetrics.balance;
+  const animatedProfit = displayMetrics.profit;
+  const animatedPercent = displayMetrics.percent;
+  const animatedTotalTraded = displayMetrics.traded;
   const newsFeed = useMemo(() => [copy.pinnedStory, ...latestNews], [copy.pinnedStory, latestNews]);
   const featuredNews = newsFeed.slice(0, 2);
   const activityPreview = activityFeed.slice(0, 2);
@@ -1194,6 +1213,75 @@ function App() {
   }, [demoAmount, isDemoRunning, isStateHydrated, reconcileLocalSimulationState, simulationEpoch]);
 
   useEffect(() => {
+    displayMetricsRef.current = displayMetrics;
+  }, [displayMetrics]);
+
+  useEffect(() => {
+    if (!isStateHydrated) {
+      return;
+    }
+
+    const nextMetrics = {
+      balance,
+      profit: demoProfit,
+      percent: demoAmount > 0 ? demoPercent : 0,
+      traded: totalTraded
+    };
+
+    if (!hasAnimatedMetricsRef.current) {
+      hasAnimatedMetricsRef.current = true;
+      displayMetricsRef.current = nextMetrics;
+      setDisplayMetrics(nextMetrics);
+      return;
+    }
+
+    const startMetrics = displayMetricsRef.current;
+    const deltas = {
+      balance: nextMetrics.balance - startMetrics.balance,
+      profit: nextMetrics.profit - startMetrics.profit,
+      percent: nextMetrics.percent - startMetrics.percent,
+      traded: nextMetrics.traded - startMetrics.traded
+    };
+
+    if (metricAnimationRef.current) {
+      window.cancelAnimationFrame(metricAnimationRef.current);
+    }
+
+    const startedAt = performance.now();
+    const animateMetrics = (timestamp) => {
+      const progress = Math.min((timestamp - startedAt) / METRIC_ANIMATION_MS, 1);
+      const eased = 1 - (1 - progress) ** 3;
+      const frameMetrics = {
+        balance: startMetrics.balance + deltas.balance * eased,
+        profit: startMetrics.profit + deltas.profit * eased,
+        percent: startMetrics.percent + deltas.percent * eased,
+        traded: startMetrics.traded + deltas.traded * eased
+      };
+
+      displayMetricsRef.current = frameMetrics;
+      setDisplayMetrics(frameMetrics);
+
+      if (progress < 1) {
+        metricAnimationRef.current = window.requestAnimationFrame(animateMetrics);
+        return;
+      }
+
+      displayMetricsRef.current = nextMetrics;
+      setDisplayMetrics(nextMetrics);
+      metricAnimationRef.current = null;
+    };
+
+    metricAnimationRef.current = window.requestAnimationFrame(animateMetrics);
+
+    return () => {
+      if (metricAnimationRef.current) {
+        window.cancelAnimationFrame(metricAnimationRef.current);
+        metricAnimationRef.current = null;
+      }
+    };
+  }, [balance, demoAmount, demoPercent, demoProfit, isStateHydrated, totalTraded]);
+
+  useEffect(() => {
     return () => {
       if (heroDismissRef.current) {
         window.clearTimeout(heroDismissRef.current);
@@ -1209,6 +1297,10 @@ function App() {
 
       if (depositGenerationRef.current) {
         window.clearTimeout(depositGenerationRef.current);
+      }
+
+      if (metricAnimationRef.current) {
+        window.cancelAnimationFrame(metricAnimationRef.current);
       }
     };
   }, []);
@@ -1722,9 +1814,9 @@ function App() {
             <div className="balance-panel panel">
               <p className="section-tag">{copy.home.capitalTag}</p>
               <div className="balance-metric-row">
-                <div className="balance-value">$ {balance.toFixed(2)}</div>
-                <div className={demoPercent >= 0 ? "balance-percent positive" : "balance-percent negative"}>
-                  {formatSignedPercent(demoAmount > 0 ? demoPercent : 0)}
+                <div className="balance-value">$ {animatedBalance.toFixed(2)}</div>
+                <div className={animatedPercent >= 0 ? "balance-percent positive" : "balance-percent negative"}>
+                  {formatSignedPercent(demoAmount > 0 ? animatedPercent : 0)}
                 </div>
               </div>
               <p className="balance-note">
@@ -1784,7 +1876,7 @@ function App() {
                 </div>
                 <div className="stat-box">
                   <span>{copy.home.totalTradedLabel}</span>
-                  <strong>${totalTraded.toFixed(1)}</strong>
+                  <strong>${animatedTotalTraded.toFixed(1)}</strong>
                 </div>
                 <div className="stat-box">
                   <span>{copy.home.swapFeeLabel}</span>
@@ -1858,8 +1950,8 @@ function App() {
                 {demoAmount > 0 && (
                   <div className="profit-badge-mini">
                     <span>{copy.home.incomeMini}</span>
-                    <strong className={demoProfit >= 0 ? "positive" : "negative"}>
-                      {formatSignedMoney(demoProfit)}
+                    <strong className={animatedProfit >= 0 ? "positive" : "negative"}>
+                      {formatSignedMoney(animatedProfit)}
                     </strong>
                   </div>
                 )}
@@ -2005,19 +2097,19 @@ function App() {
             <div className="stat-grid earnings-grid">
               <div className="stat-box">
                 <span>{copy.home.incomeMini}</span>
-                <strong className={demoProfit >= 0 ? "positive" : "negative"}>
-                  {demoAmount > 0 ? formatSignedMoney(demoProfit) : "$0.00"}
+                <strong className={animatedProfit >= 0 ? "positive" : "negative"}>
+                  {demoAmount > 0 ? formatSignedMoney(animatedProfit) : "$0.00"}
                 </strong>
               </div>
               <div className="stat-box">
                 <span>%</span>
-                <strong className={demoPercent >= 0 ? "positive" : "negative"}>
-                  {demoAmount > 0 ? formatSignedPercent(demoPercent) : "0.00%"}
+                <strong className={animatedPercent >= 0 ? "positive" : "negative"}>
+                  {demoAmount > 0 ? formatSignedPercent(animatedPercent) : "0.00%"}
                 </strong>
               </div>
               <div className="stat-box">
                 <span>{copy.home.capitalTag}</span>
-                <strong>$ {balance.toFixed(2)}</strong>
+                <strong>$ {animatedBalance.toFixed(2)}</strong>
               </div>
             </div>
           </article>
