@@ -201,10 +201,13 @@ function getSimulationStep(epoch, tick) {
   const safeEpoch = Number(epoch) || 0;
   const safeTick = Number(tick) || 0;
   const percentRoll = deterministicUnit(safeEpoch * 0.00013 + (safeTick + 1) * 12.9898);
+  const directionRoll = deterministicUnit(safeEpoch * 0.00029 + (safeTick + 1) * 19.117);
   const tradeRoll = deterministicUnit(safeEpoch * 0.00021 + (safeTick + 1) * 78.233);
+  const growthDelta = 0.038 + percentRoll * 0.032;
+  const pullbackDelta = 0.006 + percentRoll * 0.012;
 
   return {
-    percentDelta: roundToThousandths(percentRoll * 0.11 - 0.015),
+    percentDelta: roundToThousandths(directionRoll < 0.82 ? growthDelta : -pullbackDelta),
     tradeDelta: roundToTenths(0.1 + tradeRoll * 0.1)
   };
 }
