@@ -105,6 +105,40 @@ button:disabled {
   pointer-events: none;
 }
 
+.locked-shell {
+  position: relative;
+  z-index: 1;
+  min-height: calc(100vh - 32px);
+  display: grid;
+  place-items: center;
+}
+
+.locked-card {
+  width: 100%;
+  max-width: 420px;
+  display: grid;
+  gap: 12px;
+  padding: 24px 20px;
+  text-align: left;
+}
+
+.locked-card h2 {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 28px;
+  line-height: 1.05;
+}
+
+.locked-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.locked-note {
+  color: var(--green-soft);
+}
+
 .grid-glow {
   position: absolute;
   border-radius: 999px;

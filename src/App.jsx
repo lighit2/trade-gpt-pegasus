@@ -95,6 +95,12 @@ const uiText = {
       main: "PEGASUS",
       sub: "MARKET AUTOPILOT"
     },
+    locked: {
+      tag: "Telegram only",
+      title: "请在 Telegram 中打开 PEGASUS",
+      description: "出于安全授权原因，此 Mini App 仅在 Telegram 内部运行。",
+      note: "请返回机器人并通过菜单按钮启动应用。"
+    },
     hero: {
       closeLabel: "关闭横幅",
       tag: "AI Capital Autopilot",
@@ -336,6 +342,12 @@ const uiText = {
     brand: {
       main: "PEGASUS",
       sub: "MARKET AUTOPILOT"
+    },
+    locked: {
+      tag: "Telegram only",
+      title: "Open PEGASUS inside Telegram",
+      description: "For secure authorization, this Mini App works only inside Telegram.",
+      note: "Return to the bot and launch it from the menu button."
     },
     hero: {
       closeLabel: "Close banner",
@@ -881,6 +893,14 @@ const getTelegramUser = () => {
   };
 };
 
+const getTelegramInitData = () => {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  return String(window.Telegram?.WebApp?.initData || "").trim();
+};
+
 const getPersistedStateKey = (userId) => `pegas-app-state:${userId || "guest"}`;
 
 function App() {
@@ -915,7 +935,9 @@ function App() {
   const [tabDirection, setTabDirection] = useState(1);
   const [pendingHomeAction, setPendingHomeAction] = useState(null);
   const [telegramUser, setTelegramUser] = useState(null);
+  const [telegramInitData, setTelegramInitData] = useState("");
   const [isTelegramReady, setTelegramReady] = useState(false);
+  const [isTelegramBootstrapped, setTelegramBootstrapped] = useState(false);
   const [isStateHydrated, setStateHydrated] = useState(false);
   const [isAdmin, setAdmin] = useState(false);
   const [isAdminPanelOpen, setAdminPanelOpen] = useState(false);
@@ -953,6 +975,11 @@ function App() {
 
   const copy = uiText[language];
   const currentAssetMeta = assetMeta[currentAsset];
+  const hasTelegramSession = Boolean(telegramUser?.id && telegramInitData);
+  const telegramAuthHeaders = useMemo(
+    () => (telegramInitData ? { "X-Telegram-Init-Data": telegramInitData } : {}),
+    [telegramInitData]
+  );
   const balance = demoAmount + demoProfit;
   const animatedBalance = displayMetrics.balance;
   const animatedProfit = displayMetrics.profit;
@@ -1301,9 +1328,11 @@ function App() {
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
 
-    if (!tg) {
-      setTelegramUser(getTelegramUser());
-      setTelegramReady(true);
+    if (!tg?.initData) {
+      setTelegramUser(null);
+      setTelegramInitData("");
+      setTelegramReady(false);
+      setTelegramBootstrapped(true);
       return;
     }
 
@@ -1313,7 +1342,9 @@ function App() {
     tg.setBackgroundColor("#000000");
     tg.MainButton.hide();
     setTelegramUser(getTelegramUser());
+    setTelegramInitData(getTelegramInitData());
     setTelegramReady(true);
+    setTelegramBootstrapped(true);
 
     return () => {
       tg.MainButton.hide();
@@ -1345,7 +1376,7 @@ function App() {
   }, [isDepositOpen, isExchangeOpen]);
 
   useEffect(() => {
-    if (!isTelegramReady) {
+    if (!isTelegramReady || !hasTelegramSession) {
       return;
     }
 
@@ -1366,18 +1397,10 @@ function App() {
         }
       }
 
-      if (!telegramUser?.id) {
-        if (!cancelled) {
-          applyPersistedState(fallbackState);
-        }
-        if (!cancelled) {
-          setStateHydrated(true);
-        }
-        return;
-      }
-
       try {
-        const response = await fetch(`/api/app-state/${telegramUser.id}`);
+        const response = await fetch(`/api/app-state/${telegramUser.id}`, {
+          headers: telegramAuthHeaders
+        });
         const payload = await response.json();
 
         if (!cancelled && response.ok && payload.state) {
@@ -1403,10 +1426,10 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [isTelegramReady, telegramUser?.id]);
+  }, [applyPersistedState, hasTelegramSession, isTelegramReady, telegramAuthHeaders, telegramUser?.id]);
 
   useEffect(() => {
-    if (!telegramUser?.id) {
+    if (!hasTelegramSession) {
       setAdmin(false);
       setPendingDeposits([]);
       return;
@@ -1416,7 +1439,9 @@ function App() {
 
     const loadAdminDeposits = async () => {
       try {
-        const response = await fetch(`/api/admin/deposits?userId=${telegramUser.id}`);
+        const response = await fetch(`/api/admin/deposits?userId=${telegramUser.id}`, {
+          headers: telegramAuthHeaders
+        });
 
         if (response.status === 403) {
           if (!cancelled) {
@@ -1445,10 +1470,10 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [telegramUser?.id]);
+  }, [hasTelegramSession, telegramAuthHeaders, telegramUser?.id]);
 
   useEffect(() => {
-    if (!isStateHydrated) {
+    if (!isStateHydrated || !hasTelegramSession) {
       return;
     }
 
@@ -1460,10 +1485,10 @@ function App() {
 
     persistedStateRef.current = persistedAppState;
     serverSyncDirtyRef.current = true;
-  }, [isStateHydrated, persistedAppState, telegramUser?.id]);
+  }, [hasTelegramSession, isStateHydrated, persistedAppState, telegramUser?.id]);
 
   useEffect(() => {
-    if (!telegramUser?.id || !isStateHydrated) {
+    if (!hasTelegramSession || !isStateHydrated) {
       return;
     }
 
@@ -1478,7 +1503,8 @@ function App() {
         await fetch("/api/app-state", {
           method: "POST",
           headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            ...telegramAuthHeaders
           },
           body: JSON.stringify({
             userId: telegramUser.id,
@@ -1499,10 +1525,10 @@ function App() {
       window.clearTimeout(initialTimer);
       window.clearInterval(interval);
     };
-  }, [isStateHydrated, telegramUser?.id]);
+  }, [hasTelegramSession, isStateHydrated, telegramAuthHeaders, telegramUser?.id]);
 
   useEffect(() => {
-    if (!telegramUser?.id || !isStateHydrated || (demoAmount <= 0 && !hasPendingDeposit)) {
+    if (!hasTelegramSession || !isStateHydrated || (demoAmount <= 0 && !hasPendingDeposit)) {
       return;
     }
 
@@ -1510,7 +1536,9 @@ function App() {
 
     const syncLiveState = async () => {
       try {
-        const response = await fetch(`/api/app-state/${telegramUser.id}`);
+        const response = await fetch(`/api/app-state/${telegramUser.id}`, {
+          headers: telegramAuthHeaders
+        });
         const payload = await response.json().catch(() => ({}));
 
         if (!response.ok || !payload.state || cancelled) {
@@ -1530,7 +1558,7 @@ function App() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [applyPersistedState, demoAmount, hasPendingDeposit, isStateHydrated, telegramUser?.id]);
+  }, [applyPersistedState, demoAmount, hasPendingDeposit, hasTelegramSession, isStateHydrated, telegramAuthHeaders, telegramUser?.id]);
 
   useEffect(() => {
     if (!isStateHydrated || !isDemoRunning || demoAmount <= 0 || simulationEpoch <= 0) {
@@ -1666,6 +1694,10 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (!hasTelegramSession) {
+      return;
+    }
+
     let cancelled = false;
 
     const loadMarketData = async () => {
@@ -1692,9 +1724,13 @@ function App() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [currentAssetMeta.api]);
+  }, [currentAssetMeta.api, hasTelegramSession]);
 
   useEffect(() => {
+    if (!hasTelegramSession) {
+      return;
+    }
+
     let cancelled = false;
 
     const loadNews = async () => {
@@ -1736,7 +1772,7 @@ function App() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [hasTelegramSession]);
 
   const showBetaAlert = (message) => {
     if (window.Telegram?.WebApp?.showAlert) {
@@ -1963,7 +1999,8 @@ function App() {
       const response = await fetch("/api/support/request", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          ...telegramAuthHeaders
         },
         body: JSON.stringify({
           userId: telegramUser.id,
@@ -1998,7 +2035,9 @@ function App() {
     }
 
     try {
-      const response = await fetch(`/api/admin/deposits?userId=${telegramUser.id}`);
+      const response = await fetch(`/api/admin/deposits?userId=${telegramUser.id}`, {
+        headers: telegramAuthHeaders
+      });
 
       if (response.status === 403) {
         setAdmin(false);
@@ -2078,7 +2117,8 @@ function App() {
       const response = await fetch("/api/deposits/confirm", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          ...telegramAuthHeaders
         },
         body: JSON.stringify({
           userId: telegramUser.id,
@@ -2124,7 +2164,8 @@ function App() {
       const response = await fetch("/api/admin/deposits/approve", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          ...telegramAuthHeaders
         },
         body: JSON.stringify({
           adminUserId: telegramUser.id,
@@ -2632,6 +2673,38 @@ function App() {
       </section>
     );
   };
+
+  if (!isTelegramBootstrapped) {
+    return (
+      <div className="app-shell">
+        <div className="grid-glow glow-left"></div>
+        <div className="grid-glow glow-right"></div>
+        <div className="locked-shell">
+          <article className="panel locked-card">
+            <p className="section-tag">Telegram</p>
+            <h2>Loading secure session...</h2>
+          </article>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasTelegramSession) {
+    return (
+      <div className="app-shell">
+        <div className="grid-glow glow-left"></div>
+        <div className="grid-glow glow-right"></div>
+        <div className="locked-shell">
+          <article className="panel locked-card">
+            <p className="section-tag">{copy.locked.tag}</p>
+            <h2>{copy.locked.title}</h2>
+            <p>{copy.locked.description}</p>
+            <p className="locked-note">{copy.locked.note}</p>
+          </article>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">

@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import crypto from "crypto";
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -11,6 +12,7 @@ const SIMULATION_STEP_MS = 1000;
 const DEPOSIT_NOTIFICATION_RETRY_MS = 60000;
 const RETRACE_START_PERCENT = 15;
 const RETRACE_STEP_PERCENT = 5;
+const TELEGRAM_INIT_DATA_MAX_AGE_SECONDS = Number(process.env.TELEGRAM_INIT_DATA_MAX_AGE_SECONDS || 86400);
 const PORTFOLIO_ASSETS = [
   { symbol: "ETH", label: "Ethereum", weight: 0.36, seed: 1.17 },
   { symbol: "BTC", label: "Bitcoin", weight: 0.31, seed: 2.03 },
@@ -702,6 +704,140 @@ function getTelegramText(message = {}) {
   return String(message.text || message.caption || "").trim();
 }
 
+function getPublicAppUrl() {
+  const baseUrl =
+    process.env.PUBLIC_APP_URL ||
+    process.env.APP_BASE_URL ||
+    process.env.TELEGRAM_WEBHOOK_BASE_URL ||
+    process.env.RENDER_EXTERNAL_URL;
+
+  if (!baseUrl) {
+    return "";
+  }
+
+  try {
+    return new URL("/", baseUrl).toString();
+  } catch {
+    return "";
+  }
+}
+
+function getTelegramInitDataFromRequest(req) {
+  return String(req.get("x-telegram-init-data") || req.body?.initData || req.query?.initData || "").trim();
+}
+
+function validateTelegramInitData(initData) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+
+  if (!token || !initData) {
+    return null;
+  }
+
+  const params = new URLSearchParams(initData);
+  const hash = params.get("hash");
+
+  if (!hash) {
+    return null;
+  }
+
+  const dataCheckString = [...params.entries()]
+    .filter(([key]) => key !== "hash")
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("\n");
+
+  const secret = crypto.createHmac("sha256", "WebAppData").update(token).digest();
+  const calculatedHash = crypto.createHmac("sha256", secret).update(dataCheckString).digest("hex");
+
+  try {
+    const actualHash = Buffer.from(hash, "hex");
+    const expectedHash = Buffer.from(calculatedHash, "hex");
+
+    if (actualHash.length !== expectedHash.length || !crypto.timingSafeEqual(actualHash, expectedHash)) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+
+  const authDate = Number(params.get("auth_date")) || 0;
+  const isExpired =
+    TELEGRAM_INIT_DATA_MAX_AGE_SECONDS > 0 &&
+    authDate > 0 &&
+    Math.floor(Date.now() / 1000) - authDate > TELEGRAM_INIT_DATA_MAX_AGE_SECONDS;
+
+  if (isExpired) {
+    return null;
+  }
+
+  let rawUser = null;
+
+  try {
+    rawUser = JSON.parse(params.get("user") || "null");
+  } catch {
+    rawUser = null;
+  }
+
+  const userId = toUserKey(rawUser?.id);
+
+  if (!userId) {
+    return null;
+  }
+
+  return {
+    authDate,
+    user: {
+      id: userId,
+      username: rawUser?.username || "",
+      firstName: rawUser?.first_name || "",
+      lastName: rawUser?.last_name || ""
+    }
+  };
+}
+
+function requireTelegramMiniAppAuth(req, res, next) {
+  const auth = validateTelegramInitData(getTelegramInitDataFromRequest(req));
+
+  if (!auth) {
+    return res.status(403).json({
+      error: "Telegram Mini App authorization required"
+    });
+  }
+
+  req.telegramAuth = auth;
+  return next();
+}
+
+function ensureTelegramUserMatch(req, claimedUserId) {
+  const authUserId = toUserKey(req.telegramAuth?.user?.id);
+  const normalizedClaimedUserId = toUserKey(claimedUserId);
+
+  return Boolean(authUserId && normalizedClaimedUserId && authUserId === normalizedClaimedUserId);
+}
+
+function buildStartMessage() {
+  return [
+    "🚀 Welcome to PEGASUS",
+    "",
+    "PEGASUS is an AI trading autopilot built directly inside Telegram.",
+    "",
+    "🧠 What it does",
+    "• scans market news and momentum",
+    "• tracks live AI profit across ETH, BTC, DOGE and SOL",
+    "• manages entry, exit and profit rotation automatically",
+    "",
+    "💳 How funding works",
+    "• generate deposit details inside the Mini App",
+    "• submit the transfer for review",
+    "• balance is credited only after confirmation",
+    "",
+    "🛟 Need help?",
+    "Send /support and an operator will answer here.",
+    "",
+    "Tap the button below to open PEGASUS."
+  ].join("\n");
+}
+
 function getSupportRecipients(state) {
   return [...new Set([getPrimaryAdminChatId(), ...(state?.agents || [])].filter(Boolean))];
 }
@@ -740,14 +876,15 @@ async function callTelegramApi(method, body = {}) {
   return responsePayload.result;
 }
 
-async function sendTelegramMessage(chatId, text) {
+async function sendTelegramMessage(chatId, text, options = {}) {
   if (!chatId) {
     throw new Error("Missing target chat id");
   }
 
   return callTelegramApi("sendMessage", {
     chat_id: chatId,
-    text
+    text,
+    ...options
   });
 }
 
@@ -975,6 +1112,29 @@ async function handleTelegramCommand(message) {
 
   if (!senderId || !text.startsWith("/")) {
     return false;
+  }
+
+  if (/^\/start(?:@\w+)?\b/i.test(text)) {
+    const appUrl = getPublicAppUrl();
+    const replyMarkup = appUrl
+      ? {
+          inline_keyboard: [
+            [
+              {
+                text: "Open PEGASUS",
+                web_app: {
+                  url: appUrl
+                }
+              }
+            ]
+          ]
+        }
+      : undefined;
+
+    await sendTelegramMessage(senderId, buildStartMessage(), {
+      reply_markup: replyMarkup
+    });
+    return true;
   }
 
   if (/^\/add(?:@\w+)?\b/i.test(text)) {
@@ -1400,12 +1560,18 @@ app.get("/api/news/latest", async (_req, res) => {
   }
 });
 
-app.get("/api/app-state/:userId", async (req, res) => {
+app.get("/api/app-state/:userId", requireTelegramMiniAppAuth, async (req, res) => {
   const userId = toUserKey(req.params.userId);
 
   if (!userId) {
     return res.status(400).json({
       error: "Invalid Telegram user id"
+    });
+  }
+
+  if (!ensureTelegramUserMatch(req, userId)) {
+    return res.status(403).json({
+      error: "Telegram Mini App authorization required"
     });
   }
 
@@ -1430,8 +1596,14 @@ app.get("/api/app-state/:userId", async (req, res) => {
   }
 });
 
-app.get("/api/admin/deposits", async (req, res) => {
+app.get("/api/admin/deposits", requireTelegramMiniAppAuth, async (req, res) => {
   const userId = toUserKey(req.query.userId);
+
+  if (!ensureTelegramUserMatch(req, userId)) {
+    return res.status(403).json({
+      error: "Telegram Mini App authorization required"
+    });
+  }
 
   if (!isAdminUser(userId)) {
     return res.status(403).json({
@@ -1456,12 +1628,18 @@ app.get("/api/admin/deposits", async (req, res) => {
   }
 });
 
-app.post("/api/app-state", async (req, res) => {
+app.post("/api/app-state", requireTelegramMiniAppAuth, async (req, res) => {
   const userId = toUserKey(req.body?.userId);
 
   if (!userId) {
     return res.status(400).json({
       error: "Invalid Telegram user id"
+    });
+  }
+
+  if (!ensureTelegramUserMatch(req, userId)) {
+    return res.status(403).json({
+      error: "Telegram Mini App authorization required"
     });
   }
 
@@ -1488,9 +1666,15 @@ app.post("/api/app-state", async (req, res) => {
   }
 });
 
-app.post("/api/admin/users/reset-balance", async (req, res) => {
+app.post("/api/admin/users/reset-balance", requireTelegramMiniAppAuth, async (req, res) => {
   const adminUserId = toUserKey(req.body?.adminUserId);
   const targetUserId = toUserKey(req.body?.targetUserId);
+
+  if (!ensureTelegramUserMatch(req, adminUserId)) {
+    return res.status(403).json({
+      error: "Telegram Mini App authorization required"
+    });
+  }
 
   if (!isAdminUser(adminUserId)) {
     return res.status(403).json({
@@ -1555,11 +1739,17 @@ app.post("/api/admin/users/reset-balance", async (req, res) => {
   }
 });
 
-app.post("/api/support/request", async (req, res) => {
+app.post("/api/support/request", requireTelegramMiniAppAuth, async (req, res) => {
   const userId = toUserKey(req.body?.userId);
   const user = req.body?.user || {};
   const ticket = req.body?.ticket ? String(req.body.ticket) : "";
   const origin = req.body?.origin ? String(req.body.origin) : "mini-app";
+
+  if (!ensureTelegramUserMatch(req, userId)) {
+    return res.status(403).json({
+      error: "Telegram Mini App authorization required"
+    });
+  }
 
   if (!userId) {
     return res.status(400).json({
@@ -1593,10 +1783,16 @@ app.post("/api/support/request", async (req, res) => {
   }
 });
 
-app.post("/api/deposits/confirm", async (req, res) => {
+app.post("/api/deposits/confirm", requireTelegramMiniAppAuth, async (req, res) => {
   const userId = toUserKey(req.body?.userId);
   const deposit = req.body?.deposit || {};
   const user = req.body?.user || {};
+
+  if (!ensureTelegramUserMatch(req, userId)) {
+    return res.status(403).json({
+      error: "Telegram Mini App authorization required"
+    });
+  }
 
   if (!userId) {
     return res.status(400).json({
@@ -1692,9 +1888,15 @@ app.post("/api/deposits/confirm", async (req, res) => {
   }
 });
 
-app.post("/api/admin/deposits/approve", async (req, res) => {
+app.post("/api/admin/deposits/approve", requireTelegramMiniAppAuth, async (req, res) => {
   const adminUserId = toUserKey(req.body?.adminUserId);
   const ticket = String(req.body?.ticket || "").trim();
+
+  if (!ensureTelegramUserMatch(req, adminUserId)) {
+    return res.status(403).json({
+      error: "Telegram Mini App authorization required"
+    });
+  }
 
   if (!isAdminUser(adminUserId)) {
     return res.status(403).json({
