@@ -292,7 +292,7 @@ const uiText = {
       depositRequestSent: (ticket) =>
         `申请 ${ticket} 已发送给管理员审核。余额将在确认后入账。`,
       depositRequestWarning: (ticket) =>
-        `申请 ${ticket} 已保存，但 Telegram 通知未发送。请检查 TELEGRAM_BOT_TOKEN 和 TELEGRAM_ADMIN_CHAT_ID。`,
+        `申请 ${ticket} 已保存并进入审核队列。Telegram 提醒会在后台自动重试。`,
       depositRequestFailed: "无法提交充值申请。",
       adminLoadFailed: "无法加载管理员申请。",
       adminApproveDone: (ticket) => `充值 ${ticket} 已确认。`,
@@ -531,7 +531,7 @@ const uiText = {
       depositRequestSent: (ticket) =>
         `Request ${ticket} was sent to the admin for review. Balance will be credited only after approval.`,
       depositRequestWarning: (ticket) =>
-        `Request ${ticket} was saved, but the Telegram notification was not sent. Check TELEGRAM_BOT_TOKEN and TELEGRAM_ADMIN_CHAT_ID.`,
+        `Request ${ticket} was saved and queued for review. Telegram delivery will retry automatically in the background.`,
       depositRequestFailed: "Failed to submit the funding request.",
       adminLoadFailed: "Failed to load admin requests.",
       adminApproveDone: (ticket) => `Funding ${ticket} was approved.`,

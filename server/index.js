@@ -8,6 +8,7 @@ import { fileURLToPath } from "url";
 const app = express();
 const port = Number(process.env.PORT || 3001);
 const SIMULATION_STEP_MS = 1000;
+const DEPOSIT_NOTIFICATION_RETRY_MS = 60000;
 const RETRACE_START_PERCENT = 15;
 const RETRACE_STEP_PERCENT = 5;
 const __filename = fileURLToPath(import.meta.url);
@@ -23,6 +24,7 @@ let pendingDepositsCache = null;
 let supportStateCache = null;
 let telegramPollingStarted = false;
 let simulationLoopStarted = false;
+let depositNotificationLoopStarted = false;
 let telegramUpdateOffset = 0;
 
 function toUserKey(value) {
@@ -525,6 +527,90 @@ async function sendTelegramMessage(chatId, text) {
     chat_id: chatId,
     text
   });
+}
+
+function buildDepositAdminNotificationLines(entry) {
+  return [
+    "Pegasus payment request",
+    "",
+    `User: ${entry.displayName}`,
+    `Telegram ID: ${entry.userId}`,
+    entry.username ? `Username: @${entry.username}` : null,
+    `Amount: $${Number(entry.amountUsd || 0).toFixed(2)}`,
+    `Asset: ${entry.symbol}`,
+    `Network: ${entry.network || "-"}`,
+    `Transfer: ${entry.cryptoAmount} ${entry.symbol}`,
+    `Wallet: ${entry.wallet}`,
+    `Ticket: ${entry.ticket}`,
+    "",
+    "The user pressed confirmation. Review the payment and approve it in admin."
+  ].filter(Boolean);
+}
+
+async function sendDepositAdminNotification(entry) {
+  const adminChatId = getAdminChatId(entry?.userId);
+
+  if (!adminChatId) {
+    throw new Error("Missing admin chat id");
+  }
+
+  const result = await sendTelegramMessage(adminChatId, buildDepositAdminNotificationLines(entry).join("\n"));
+
+  return {
+    adminChatId,
+    result
+  };
+}
+
+async function retryPendingDepositNotifications() {
+  const store = await readPendingDepositsStore();
+  const now = Date.now();
+  let changed = false;
+
+  for (const [ticket, currentEntry] of Object.entries(store)) {
+    if (!currentEntry || currentEntry.status !== "pending") {
+      continue;
+    }
+
+    const notificationStatus = currentEntry.adminNotificationStatus || "pending";
+    const lastAttemptAt = Number(currentEntry.adminNotificationLastAttemptAt) || 0;
+
+    if (notificationStatus === "sent" || now - lastAttemptAt < DEPOSIT_NOTIFICATION_RETRY_MS) {
+      continue;
+    }
+
+    const nextAttempts = (Number(currentEntry.adminNotificationAttempts) || 0) + 1;
+
+    try {
+      const { adminChatId, result } = await sendDepositAdminNotification(currentEntry);
+      store[ticket] = {
+        ...currentEntry,
+        adminNotificationStatus: "sent",
+        adminNotificationError: "",
+        adminNotificationAttempts: nextAttempts,
+        adminNotificationLastAttemptAt: now,
+        adminNotificationSentAt: now,
+        adminNotificationChatId: adminChatId,
+        adminNotificationMessageId: Number(result?.message_id) || 0,
+        updatedAt: now
+      };
+      changed = true;
+    } catch (error) {
+      store[ticket] = {
+        ...currentEntry,
+        adminNotificationStatus: "pending",
+        adminNotificationError: String(error.message || error),
+        adminNotificationAttempts: nextAttempts,
+        adminNotificationLastAttemptAt: now,
+        updatedAt: now
+      };
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    await writePendingDepositsStore(store);
+  }
 }
 
 function upsertSupportThread(state, { userId, user, source, ticket = "", messageText = "" }) {
@@ -1322,6 +1408,13 @@ app.post("/api/deposits/confirm", async (req, res) => {
     cryptoAmount: Number(deposit.cryptoAmount) || 0,
     decimals: Number(deposit.decimals) || 0,
     status: "pending",
+    adminNotificationStatus: existing?.adminNotificationStatus === "sent" ? "sent" : "pending",
+    adminNotificationError: existing?.adminNotificationError ? String(existing.adminNotificationError) : "",
+    adminNotificationAttempts: Number(existing?.adminNotificationAttempts) || 0,
+    adminNotificationLastAttemptAt: Number(existing?.adminNotificationLastAttemptAt) || 0,
+    adminNotificationSentAt: Number(existing?.adminNotificationSentAt) || 0,
+    adminNotificationChatId: existing?.adminNotificationChatId ? String(existing.adminNotificationChatId) : "",
+    adminNotificationMessageId: Number(existing?.adminNotificationMessageId) || 0,
     createdAt: existing?.createdAt || Date.now(),
     updatedAt: Date.now()
   };
@@ -1329,44 +1422,49 @@ app.post("/api/deposits/confirm", async (req, res) => {
   store[entry.ticket] = entry;
   await writePendingDepositsStore(store);
 
-  const lines = [
-    "Pegasus payment request",
-    "",
-    `User: ${entry.displayName}`,
-    `Telegram ID: ${userId}`,
-    user.username ? `Username: @${user.username}` : null,
-    `Amount: $${entry.amountUsd.toFixed(2)}`,
-    `Asset: ${entry.symbol}`,
-    `Network: ${entry.network || "-"}`,
-    `Transfer: ${entry.cryptoAmount} ${entry.symbol}`,
-    `Wallet: ${entry.wallet}`,
-    `Ticket: ${entry.ticket}`,
-    "",
-    "The user pressed confirmation. Review the payment and approve it in admin."
-  ].filter(Boolean);
-
   try {
-    const adminChatId = getAdminChatId(userId);
-    let result = null;
-    let notified = false;
+    const { adminChatId, result } = await sendDepositAdminNotification(entry);
+    const sentAt = Date.now();
+    const updatedEntry = {
+      ...entry,
+      adminNotificationStatus: "sent",
+      adminNotificationError: "",
+      adminNotificationAttempts: entry.adminNotificationAttempts + 1,
+      adminNotificationLastAttemptAt: sentAt,
+      adminNotificationSentAt: sentAt,
+      adminNotificationChatId: adminChatId,
+      adminNotificationMessageId: Number(result?.message_id) || 0,
+      updatedAt: sentAt
+    };
 
-    if (adminChatId) {
-      result = await sendTelegramMessage(adminChatId, lines.join("\n"));
-      notified = true;
-    }
+    store[entry.ticket] = updatedEntry;
+    await writePendingDepositsStore(store);
 
     return res.json({
       ok: true,
-      notified,
-      request: entry,
-      result
+      notified: true,
+      notificationStatus: "sent",
+      request: updatedEntry
     });
   } catch (error) {
+    const failedAt = Date.now();
+    const updatedEntry = {
+      ...entry,
+      adminNotificationStatus: "pending",
+      adminNotificationError: String(error.message || error),
+      adminNotificationAttempts: entry.adminNotificationAttempts + 1,
+      adminNotificationLastAttemptAt: failedAt,
+      updatedAt: failedAt
+    };
+
+    store[entry.ticket] = updatedEntry;
+    await writePendingDepositsStore(store);
+
     return res.json({
       ok: true,
       notified: false,
-      request: entry,
-      warning: error.message || "Failed to notify Telegram"
+      notificationStatus: "pending",
+      request: updatedEntry
     });
   }
 });
@@ -1483,6 +1581,24 @@ function startSimulationLoop() {
   }, SIMULATION_STEP_MS);
 }
 
+function startDepositNotificationLoop() {
+  if (depositNotificationLoopStarted) {
+    return;
+  }
+
+  depositNotificationLoopStarted = true;
+
+  void retryPendingDepositNotifications().catch((error) => {
+    console.error("Initial deposit notification retry failed:", error.message || error);
+  });
+
+  setInterval(() => {
+    void retryPendingDepositNotifications().catch((error) => {
+      console.error("Deposit notification loop error:", error.message || error);
+    });
+  }, DEPOSIT_NOTIFICATION_RETRY_MS);
+}
+
 app.post("/api/bot/test", async (req, res) => {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_TEST_CHAT_ID;
@@ -1546,5 +1662,6 @@ app.get("/{*path}", (req, res, next) => {
 app.listen(port, "0.0.0.0", () => {
   console.log(`Pegasus server listening on :${port}`);
   startSimulationLoop();
+  startDepositNotificationLoop();
   void startTelegramUpdates();
 });
