@@ -641,6 +641,80 @@ button:disabled {
   line-height: 1.45;
 }
 
+.portfolio-mix {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
+    rgba(4, 8, 14, 0.46);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.portfolio-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.portfolio-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 54px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(138, 101, 255, 0.08), rgba(91, 255, 162, 0.04)),
+    rgba(7, 12, 18, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.portfolio-pill-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.portfolio-pill-copy strong {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.portfolio-pill-copy span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.portfolio-pill-value {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.portfolio-total-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.portfolio-total-row strong {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.portfolio-total-row.compact {
+  padding-top: 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
 .pnl-line,
 .market-row,
 .action-row,
@@ -1876,6 +1950,14 @@ button:disabled {
     min-height: 30px;
     padding: 0 10px;
     font-size: 12px;
+  }
+
+  .portfolio-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .portfolio-pill {
+    min-height: 50px;
   }
 
   .candle-grid {

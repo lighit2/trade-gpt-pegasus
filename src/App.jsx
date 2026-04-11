@@ -15,6 +15,12 @@ const LIVE_STATE_SYNC_MS = 5000;
 const METRIC_ANIMATION_MS = 480;
 const RETRACE_START_PERCENT = 15;
 const RETRACE_STEP_PERCENT = 5;
+const PORTFOLIO_ASSETS = [
+  { symbol: "ETH", label: "Ethereum", weight: 0.36, seed: 1.17 },
+  { symbol: "BTC", label: "Bitcoin", weight: 0.31, seed: 2.03 },
+  { symbol: "DOGE", label: "Dogecoin", weight: 0.12, seed: 3.11 },
+  { symbol: "SOL", label: "Solana", weight: 0.21, seed: 4.27 }
+];
 
 const depositAssetMeta = {
   BTC: {
@@ -137,6 +143,9 @@ const uiText = {
       balanceRunningNote: "PEGASUS 正在管理仓位并实时重算收益。",
       balanceClosedNote: "本轮已结束。你可以再次充值并启动 AI。",
       balanceIdleNote: "充值后即可启动 AI 模式并交给引擎执行。",
+      portfolioMixLabel: "利润构成",
+      portfolioTotalLabel: "总收益",
+      portfolioShareLabel: (share) => `仓位 ${share}%`,
       depositButton: "充值余额",
       withdrawButton: "提现",
       marketModeLabel: "模式",
@@ -376,6 +385,9 @@ const uiText = {
       balanceRunningNote: "PEGASUS is already managing the position and recalculating profit live.",
       balanceClosedNote: "Session closed. You can fund again and launch AI.",
       balanceIdleNote: "Add funds to start AI mode and hand execution over to the engine.",
+      portfolioMixLabel: "Profit mix",
+      portfolioTotalLabel: "Total AI profit",
+      portfolioShareLabel: (share) => `${share}% allocation`,
       depositButton: "Fund balance",
       withdrawButton: "Withdraw",
       marketModeLabel: "Mode",
@@ -583,55 +595,261 @@ const deterministicUnit = (seed) => {
   return raw - Math.floor(raw);
 };
 
-const getSimulationStep = (epoch, tick) => {
-  const safeEpoch = Number(epoch) || 0;
-  const safeTick = Number(tick) || 0;
-  const profitRoll = deterministicUnit(safeEpoch * 0.00013 + (safeTick + 1) * 12.9898);
-  const directionRoll = deterministicUnit(safeEpoch * 0.00029 + (safeTick + 1) * 19.117);
-  const tradeRoll = deterministicUnit(safeEpoch * 0.00021 + (safeTick + 1) * 78.233);
-  const growthDelta = 0.04 + profitRoll * 0.016;
-  const pullbackDelta = 0.007 + profitRoll * 0.006;
-  const shockDelta = 0.024 + profitRoll * 0.012;
+const createWeightedSplit = (totalAmount, rounder) => {
+  const safeTotal = Number(totalAmount) || 0;
+  let remainder = safeTotal;
 
-  let profitDelta = growthDelta;
+  return PORTFOLIO_ASSETS.map((asset, index) => {
+    if (index === PORTFOLIO_ASSETS.length - 1) {
+      return rounder(remainder);
+    }
 
-  if (directionRoll >= 0.9) {
-    profitDelta = -shockDelta;
-  } else if (directionRoll >= 0.7) {
-    profitDelta = -pullbackDelta;
-  }
-
-  return {
-    profitDelta: roundToFourDecimals(profitDelta),
-    tradeDelta: roundToHundredths(0.02 + tradeRoll * 0.03)
-  };
+    const nextValue = rounder(safeTotal * asset.weight);
+    remainder -= nextValue;
+    return nextValue;
+  });
 };
 
-const applyProfitRetrace = (demoAmount, nextProfit, lastRetraceThreshold) => {
+const createPortfolioPositions = (demoAmount = 0, demoProfit = 0) => {
+  const capitalSplit = createWeightedSplit(demoAmount, roundToCents);
+  const profitSplit = createWeightedSplit(demoProfit, roundToFourDecimals);
+
+  return PORTFOLIO_ASSETS.map((asset, index) => ({
+    symbol: asset.symbol,
+    capital: capitalSplit[index],
+    profit: profitSplit[index]
+  }));
+};
+
+const sumPortfolioCapital = (positions = []) =>
+  roundToCents(positions.reduce((sum, position) => sum + (Number(position?.capital) || 0), 0));
+
+const sumPortfolioProfit = (positions = []) =>
+  roundToFourDecimals(positions.reduce((sum, position) => sum + (Number(position?.profit) || 0), 0));
+
+const normalizePortfolioCapitals = (positions, targetAmount) => {
+  const safeTargetAmount = roundToCents(targetAmount);
+
+  if (safeTargetAmount <= 0) {
+    return positions.map((position) => ({
+      ...position,
+      capital: 0
+    }));
+  }
+
+  const currentCapital = sumPortfolioCapital(positions);
+
+  if (currentCapital <= 0) {
+    return createPortfolioPositions(safeTargetAmount, 0).map((position, index) => ({
+      ...positions[index],
+      capital: position.capital
+    }));
+  }
+
+  let remaining = safeTargetAmount;
+
+  return positions.map((position, index) => {
+    if (index === positions.length - 1) {
+      return {
+        ...position,
+        capital: roundToCents(remaining)
+      };
+    }
+
+    const nextCapital = roundToCents(safeTargetAmount * ((Number(position.capital) || 0) / currentCapital));
+    remaining -= nextCapital;
+
+    return {
+      ...position,
+      capital: nextCapital
+    };
+  });
+};
+
+const sanitizePortfolioPositions = (positions, demoAmount = 0, demoProfit = 0) => {
+  if (!Array.isArray(positions) || positions.length === 0) {
+    return createPortfolioPositions(demoAmount, demoProfit);
+  }
+
+  const positionsBySymbol = new Map(
+    positions
+      .filter((position) => position?.symbol)
+      .map((position) => [
+        String(position.symbol).toUpperCase(),
+        {
+          symbol: String(position.symbol).toUpperCase(),
+          capital: roundToCents(position.capital),
+          profit: roundToFourDecimals(position.profit)
+        }
+      ])
+  );
+
+  let normalized = PORTFOLIO_ASSETS.map((asset) => ({
+    symbol: asset.symbol,
+    capital: positionsBySymbol.get(asset.symbol)?.capital || 0,
+    profit: positionsBySymbol.get(asset.symbol)?.profit || 0
+  }));
+
+  const targetAmount = Number(demoAmount) > 0 ? roundToCents(demoAmount) : sumPortfolioCapital(normalized);
+
+  if (targetAmount > 0 && Math.abs(sumPortfolioCapital(normalized) - targetAmount) > 0.02) {
+    normalized = normalizePortfolioCapitals(normalized, targetAmount);
+  }
+
+  if (sumPortfolioProfit(normalized) === 0 && Number(demoProfit) !== 0) {
+    const fallbackProfits = createPortfolioPositions(0, demoProfit);
+    normalized = normalized.map((position, index) => ({
+      ...position,
+      profit: fallbackProfits[index].profit
+    }));
+  }
+
+  return normalized;
+};
+
+const addCapitalToPortfolio = (positions, amount) => {
+  const safeAmount = roundToCents(amount);
+  const normalized = sanitizePortfolioPositions(positions, sumPortfolioCapital(positions), sumPortfolioProfit(positions));
+
+  if (!safeAmount) {
+    return normalized;
+  }
+
+  const additions = createPortfolioPositions(safeAmount, 0);
+
+  return normalized.map((position, index) => ({
+    ...position,
+    capital: roundToCents(position.capital + additions[index].capital)
+  }));
+};
+
+const applyPortfolioProfitAdjustment = (positions, adjustment, preferredSymbol = null) => {
+  const normalized = sanitizePortfolioPositions(positions, sumPortfolioCapital(positions), sumPortfolioProfit(positions));
+  const safeAdjustment = roundToFourDecimals(adjustment);
+
+  if (!safeAdjustment) {
+    return normalized;
+  }
+
+  const totalProfit = sumPortfolioProfit(normalized);
+  const boundedAdjustment = safeAdjustment < 0 ? Math.max(safeAdjustment, -totalProfit) : safeAdjustment;
+  const preferredIndex = normalized.findIndex((position) => position.symbol === preferredSymbol);
+  const fallbackIndex = normalized.reduce((bestIndex, position, index, list) => {
+    if (Number(position.profit) > Number(list[bestIndex]?.profit || 0)) {
+      return index;
+    }
+
+    return bestIndex;
+  }, 0);
+  const targetIndex = preferredIndex >= 0 ? preferredIndex : fallbackIndex;
+
+  return normalized.map((position, index) =>
+    index === targetIndex
+      ? {
+          ...position,
+          profit: roundToFourDecimals(position.profit + boundedAdjustment)
+        }
+      : position
+  );
+};
+
+const getTradeDelta = (epoch, tick) => {
+  const safeEpoch = Number(epoch) || 0;
+  const safeTick = Number(tick) || 0;
+  const tradeRoll = deterministicUnit(safeEpoch * 0.00021 + (safeTick + 1) * 78.233);
+  return roundToHundredths(0.02 + tradeRoll * 0.03);
+};
+
+const getPositionProfitDelta = (epoch, tick, position, index) => {
+  const safeEpoch = Number(epoch) || 0;
+  const safeTick = Number(tick) || 0;
+  const capital = Number(position?.capital) || 0;
+  const seed = PORTFOLIO_ASSETS[index]?.seed || index + 1;
+
+  if (capital <= 0) {
+    return 0;
+  }
+
+  const profitRoll = deterministicUnit(safeEpoch * 0.00013 + (safeTick + 1) * (12.9898 + seed));
+  const directionRoll = deterministicUnit(safeEpoch * 0.00029 + (safeTick + 1) * (19.117 + seed * 1.7));
+  const growthDelta = capital * (0.0009 + profitRoll * 0.0006);
+  const pullbackDelta = capital * (0.00024 + profitRoll * 0.00018);
+  const shockDelta = capital * (0.0011 + profitRoll * 0.0006);
+
+  if (directionRoll >= 0.9) {
+    return -roundToFourDecimals(shockDelta);
+  }
+
+  if (directionRoll >= 0.7) {
+    return -roundToFourDecimals(pullbackDelta);
+  }
+
+  return roundToFourDecimals(growthDelta);
+};
+
+const getRetraceTargetSymbol = (epoch, tick, threshold) => {
+  const roll = deterministicUnit((Number(epoch) || 0) * 0.00047 + (Number(tick) + 1) * 7.331 + threshold * 0.91);
+
+  if (roll < 0.38) {
+    return "ETH";
+  }
+
+  if (roll < 0.68) {
+    return "BTC";
+  }
+
+  if (roll < 0.84) {
+    return "SOL";
+  }
+
+  return "DOGE";
+};
+
+const applyPortfolioRetrace = (demoAmount, positions, lastRetraceThreshold, epoch, tick) => {
   const safeAmount = Number(demoAmount) || 0;
   const safeThreshold = Number(lastRetraceThreshold) || 0;
 
   if (safeAmount <= 0) {
     return {
-      nextProfit: roundToFourDecimals(nextProfit),
+      positions,
+      nextProfit: sumPortfolioProfit(positions),
       nextPercent: 0,
       lastRetraceThreshold: safeThreshold
     };
   }
 
-  let adjustedProfit = roundToFourDecimals(nextProfit);
+  let adjustedPositions = positions.map((position) => ({
+    ...position,
+    profit: roundToFourDecimals(position.profit)
+  }));
+  let adjustedProfit = sumPortfolioProfit(adjustedPositions);
   let adjustedPercent = roundToThousandths((adjustedProfit / safeAmount) * 100);
   let appliedThreshold = safeThreshold;
   let nextThreshold = safeThreshold >= RETRACE_START_PERCENT ? safeThreshold + RETRACE_STEP_PERCENT : RETRACE_START_PERCENT;
 
   while (adjustedPercent >= nextThreshold) {
-    adjustedPercent = roundToThousandths(nextThreshold / 2);
-    adjustedProfit = roundToFourDecimals((safeAmount * adjustedPercent) / 100);
+    const targetPercent = roundToThousandths(nextThreshold / 2);
+    const targetProfit = roundToFourDecimals((safeAmount * targetPercent) / 100);
+    const reduction = roundToFourDecimals(adjustedProfit - targetProfit);
+    const retraceSymbol = getRetraceTargetSymbol(epoch, tick, nextThreshold);
+
+    adjustedPositions = adjustedPositions.map((position) =>
+      position.symbol === retraceSymbol
+        ? {
+            ...position,
+            profit: roundToFourDecimals(position.profit - reduction)
+          }
+        : position
+    );
+
+    adjustedProfit = targetProfit;
+    adjustedPercent = targetPercent;
     appliedThreshold = nextThreshold;
     nextThreshold += RETRACE_STEP_PERCENT;
   }
 
   return {
+    positions: adjustedPositions,
     nextProfit: adjustedProfit,
     nextPercent: adjustedPercent,
     lastRetraceThreshold: appliedThreshold
@@ -679,6 +897,7 @@ function App() {
   const [demoAmount, setDemoAmount] = useState(0);
   const [demoProfit, setDemoProfit] = useState(0);
   const [demoPercent, setDemoPercent] = useState(0);
+  const [portfolioPositions, setPortfolioPositions] = useState(() => createPortfolioPositions(0, 0));
   const [totalDeposited, setTotalDeposited] = useState(0);
   const [totalTraded, setTotalTraded] = useState(0);
   const [lastRetraceThreshold, setLastRetraceThreshold] = useState(0);
@@ -707,7 +926,11 @@ function App() {
     balance: 0,
     profit: 0,
     percent: 0,
-    traded: 0
+    traded: 0,
+    portfolio: PORTFOLIO_ASSETS.map((asset) => ({
+      symbol: asset.symbol,
+      percent: 0
+    }))
   });
   const heroDismissRef = useRef(null);
   const tabTransitionRef = useRef(null);
@@ -718,9 +941,15 @@ function App() {
     balance: 0,
     profit: 0,
     percent: 0,
-    traded: 0
+    traded: 0,
+    portfolio: PORTFOLIO_ASSETS.map((asset) => ({
+      symbol: asset.symbol,
+      percent: 0
+    }))
   });
   const hasAnimatedMetricsRef = useRef(false);
+  const persistedStateRef = useRef(null);
+  const serverSyncDirtyRef = useRef(false);
 
   const copy = uiText[language];
   const currentAssetMeta = assetMeta[currentAsset];
@@ -729,6 +958,28 @@ function App() {
   const animatedProfit = displayMetrics.profit;
   const animatedPercent = displayMetrics.percent;
   const animatedTotalTraded = displayMetrics.traded;
+  const portfolioBreakdown = useMemo(() => {
+    const positionsBySymbol = new Map(portfolioPositions.map((position) => [position.symbol, position]));
+
+    return PORTFOLIO_ASSETS.map((asset) => {
+      const position = positionsBySymbol.get(asset.symbol) || {
+        capital: 0,
+        profit: 0
+      };
+      const allocationPercent = demoAmount > 0 ? roundToThousandths((position.capital / demoAmount) * 100) : asset.weight * 100;
+      const contributionPercent = demoAmount > 0 ? roundToThousandths((position.profit / demoAmount) * 100) : 0;
+
+      return {
+        ...asset,
+        allocationPercent,
+        contributionPercent
+      };
+    });
+  }, [demoAmount, portfolioPositions]);
+  const animatedPortfolio = portfolioBreakdown.map((asset, index) => ({
+    ...asset,
+    contributionPercent: displayMetrics.portfolio[index]?.percent || 0
+  }));
   const newsFeed = useMemo(() => [copy.pinnedStory, ...latestNews], [copy.pinnedStory, latestNews]);
   const featuredNews = newsFeed.slice(0, 2);
   const activityPreview = activityFeed.slice(0, 2);
@@ -742,6 +993,7 @@ function App() {
       demoAmount,
       demoProfit,
       demoPercent,
+      portfolioPositions,
       totalDeposited,
       totalTraded,
       lastRetraceThreshold,
@@ -758,6 +1010,7 @@ function App() {
       demoAmount,
       demoPercent,
       demoProfit,
+      portfolioPositions,
       isDemoRunning,
       isHeroVisible,
       lastRetraceThreshold,
@@ -946,9 +1199,10 @@ function App() {
       return;
     }
 
-    const nextDemoAmount = Number(state.demoAmount) || 0;
-    const nextDemoProfit = Number(state.demoProfit) || 0;
-    const nextDemoPercent = Number(state.demoPercent) || 0;
+    const nextPortfolioPositions = sanitizePortfolioPositions(state.portfolioPositions, state.demoAmount, state.demoProfit);
+    const nextDemoAmount = sumPortfolioCapital(nextPortfolioPositions);
+    const nextDemoProfit = sumPortfolioProfit(nextPortfolioPositions);
+    const nextDemoPercent = nextDemoAmount > 0 ? roundToThousandths((nextDemoProfit / nextDemoAmount) * 100) : 0;
     const nextTotalDeposited = Number(state.totalDeposited) || 0;
     const nextTotalTraded = Number(state.totalTraded) || 0;
     const nextLastRetraceThreshold = Number(state.lastRetraceThreshold) || 0;
@@ -966,6 +1220,7 @@ function App() {
     setDemoAmount(nextDemoAmount);
     setDemoProfit(nextDemoProfit);
     setDemoPercent(nextDemoPercent);
+    setPortfolioPositions(nextPortfolioPositions);
     setTotalDeposited(nextTotalDeposited);
     setTotalTraded(nextTotalTraded);
     setLastRetraceThreshold(nextLastRetraceThreshold);
@@ -988,31 +1243,60 @@ function App() {
       return null;
     }
 
-    let nextProfit = roundToFourDecimals(demoProfit);
+    let nextPositions = sanitizePortfolioPositions(portfolioPositions, demoAmount, demoProfit);
+    let nextProfit = sumPortfolioProfit(nextPositions);
     let nextTotalTraded = totalTraded;
     let nextTicks = simulationTicks;
     let nextLastRetraceThreshold = lastRetraceThreshold;
 
     for (let tick = simulationTicks; tick < elapsedTicks; tick += 1) {
-      const { profitDelta, tradeDelta } = getSimulationStep(simulationEpoch, tick);
-      nextProfit = Math.max(0, roundToFourDecimals(nextProfit + profitDelta));
-      const retraced = applyProfitRetrace(demoAmount, nextProfit, nextLastRetraceThreshold);
+      nextPositions = nextPositions.map((position, index) => ({
+        ...position,
+        profit: roundToFourDecimals(position.profit + getPositionProfitDelta(simulationEpoch, tick, position, index))
+      }));
+      nextProfit = sumPortfolioProfit(nextPositions);
+
+      if (nextProfit < 0) {
+        const recovery = Math.abs(nextProfit);
+        nextPositions = nextPositions.map((position, index) =>
+          index === 0
+            ? {
+                ...position,
+                profit: roundToFourDecimals(position.profit + recovery)
+              }
+            : position
+        );
+        nextProfit = 0;
+      }
+
+      const retraced = applyPortfolioRetrace(demoAmount, nextPositions, nextLastRetraceThreshold, simulationEpoch, tick);
+      nextPositions = retraced.positions;
       nextProfit = retraced.nextProfit;
       nextLastRetraceThreshold = retraced.lastRetraceThreshold;
-      nextTotalTraded = roundToHundredths(nextTotalTraded + tradeDelta);
+      nextTotalTraded = roundToHundredths(nextTotalTraded + getTradeDelta(simulationEpoch, tick));
       nextTicks = tick + 1;
     }
 
     const nextPercent = demoAmount > 0 ? roundToThousandths((nextProfit / demoAmount) * 100) : 0;
 
     return {
+      portfolioPositions: nextPositions,
       demoProfit: nextProfit,
       demoPercent: nextPercent,
       totalTraded: nextTotalTraded,
       lastRetraceThreshold: nextLastRetraceThreshold,
       simulationTicks: nextTicks
     };
-  }, [demoAmount, demoProfit, isDemoRunning, lastRetraceThreshold, simulationEpoch, simulationTicks, totalTraded]);
+  }, [
+    demoAmount,
+    demoProfit,
+    isDemoRunning,
+    lastRetraceThreshold,
+    portfolioPositions,
+    simulationEpoch,
+    simulationTicks,
+    totalTraded
+  ]);
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
@@ -1174,12 +1458,22 @@ function App() {
       window.localStorage.setItem(storageKey, JSON.stringify(persistedAppState));
     }
 
-    if (!telegramUser?.id) {
+    persistedStateRef.current = persistedAppState;
+    serverSyncDirtyRef.current = true;
+  }, [isStateHydrated, persistedAppState, telegramUser?.id]);
+
+  useEffect(() => {
+    if (!telegramUser?.id || !isStateHydrated) {
       return;
     }
 
-    const controller = new AbortController();
-    const timer = window.setTimeout(async () => {
+    let cancelled = false;
+
+    const pushState = async () => {
+      if (!persistedStateRef.current || !serverSyncDirtyRef.current || cancelled) {
+        return;
+      }
+
       try {
         await fetch("/api/app-state", {
           method: "POST",
@@ -1188,20 +1482,24 @@ function App() {
           },
           body: JSON.stringify({
             userId: telegramUser.id,
-            state: persistedAppState
-          }),
-          signal: controller.signal
+            state: persistedStateRef.current
+          })
         });
+        serverSyncDirtyRef.current = false;
       } catch {
         return;
       }
-    }, 180);
+    };
+
+    const initialTimer = window.setTimeout(pushState, 320);
+    const interval = window.setInterval(pushState, LIVE_STATE_SYNC_MS);
 
     return () => {
-      window.clearTimeout(timer);
-      controller.abort();
+      cancelled = true;
+      window.clearTimeout(initialTimer);
+      window.clearInterval(interval);
     };
-  }, [isStateHydrated, persistedAppState, telegramUser?.id]);
+  }, [isStateHydrated, telegramUser?.id]);
 
   useEffect(() => {
     if (!telegramUser?.id || !isStateHydrated || (demoAmount <= 0 && !hasPendingDeposit)) {
@@ -1246,6 +1544,7 @@ function App() {
         return;
       }
 
+      setPortfolioPositions(nextState.portfolioPositions);
       setDemoProfit(nextState.demoProfit);
       setDemoPercent(nextState.demoPercent);
       setTotalTraded(nextState.totalTraded);
@@ -1274,7 +1573,11 @@ function App() {
       balance,
       profit: demoProfit,
       percent: demoAmount > 0 ? demoPercent : 0,
-      traded: totalTraded
+      traded: totalTraded,
+      portfolio: portfolioBreakdown.map((asset) => ({
+        symbol: asset.symbol,
+        percent: asset.contributionPercent
+      }))
     };
 
     if (!hasAnimatedMetricsRef.current) {
@@ -1289,7 +1592,11 @@ function App() {
       balance: nextMetrics.balance - startMetrics.balance,
       profit: nextMetrics.profit - startMetrics.profit,
       percent: nextMetrics.percent - startMetrics.percent,
-      traded: nextMetrics.traded - startMetrics.traded
+      traded: nextMetrics.traded - startMetrics.traded,
+      portfolio: nextMetrics.portfolio.map((asset, index) => ({
+        symbol: asset.symbol,
+        percent: asset.percent - (startMetrics.portfolio[index]?.percent || 0)
+      }))
     };
 
     if (metricAnimationRef.current) {
@@ -1304,7 +1611,11 @@ function App() {
         balance: startMetrics.balance + deltas.balance * eased,
         profit: startMetrics.profit + deltas.profit * eased,
         percent: startMetrics.percent + deltas.percent * eased,
-        traded: startMetrics.traded + deltas.traded * eased
+        traded: startMetrics.traded + deltas.traded * eased,
+        portfolio: nextMetrics.portfolio.map((asset, index) => ({
+          symbol: asset.symbol,
+          percent: (startMetrics.portfolio[index]?.percent || 0) + deltas.portfolio[index].percent * eased
+        }))
       };
 
       displayMetricsRef.current = frameMetrics;
@@ -1328,7 +1639,7 @@ function App() {
         metricAnimationRef.current = null;
       }
     };
-  }, [balance, demoAmount, demoPercent, demoProfit, isStateHydrated, totalTraded]);
+  }, [balance, demoAmount, demoPercent, demoProfit, isStateHydrated, portfolioBreakdown, totalTraded]);
 
   useEffect(() => {
     return () => {
@@ -1489,9 +1800,11 @@ function App() {
 
     const nextAmount = Number((demoAmount + amount).toFixed(2));
     const nextPercent = nextAmount > 0 ? Number(((demoProfit / nextAmount) * 100).toFixed(2)) : 0;
+    const nextPortfolioPositions = addCapitalToPortfolio(portfolioPositions, amount);
 
     setDemoAmount(nextAmount);
     setDemoPercent(nextPercent);
+    setPortfolioPositions(nextPortfolioPositions);
     setTotalDeposited((current) => Number((current + amount).toFixed(2)));
     setSimulationEpoch(Date.now());
     setSimulationTicks(0);
@@ -1576,7 +1889,12 @@ function App() {
         return;
       }
 
-      setDemoProfit((current) => Number((current - 25).toFixed(2)));
+      const nextProfit = roundToFourDecimals(demoProfit - 25);
+      const nextPercent = demoAmount > 0 ? roundToThousandths((nextProfit / demoAmount) * 100) : 0;
+
+      setPortfolioPositions((current) => applyPortfolioProfitAdjustment(current, -25));
+      setDemoProfit(nextProfit);
+      setDemoPercent(nextPercent);
       pushActivity({
         type: "send",
         amount: "-$25.00",
@@ -1607,7 +1925,12 @@ function App() {
     setCurrentAsset(nextAsset);
 
     if (fee > 0) {
-      setDemoProfit((current) => Number((current - fee).toFixed(2)));
+      const nextProfit = roundToFourDecimals(demoProfit - fee);
+      const nextPercent = demoAmount > 0 ? roundToThousandths((nextProfit / demoAmount) * 100) : 0;
+
+      setPortfolioPositions((current) => applyPortfolioProfitAdjustment(current, -fee));
+      setDemoProfit(nextProfit);
+      setDemoPercent(nextPercent);
       pushActivity({
         type: "exchange",
         amount: `-$${fee.toFixed(2)}`,
@@ -1875,6 +2198,33 @@ function App() {
                     : copy.home.balanceClosedNote
                   : copy.home.balanceIdleNote}
               </p>
+              <div className="portfolio-mix">
+                <div className="portfolio-total-row">
+                  <span>{copy.home.portfolioMixLabel}</span>
+                  <strong className={animatedPercent >= 0 ? "positive" : "negative"}>
+                    {formatSignedPercent(demoAmount > 0 ? animatedPercent : 0)}
+                  </strong>
+                </div>
+                <div className="portfolio-grid">
+                  {animatedPortfolio.map((asset) => (
+                    <div className="portfolio-pill" key={asset.symbol}>
+                      <div className="portfolio-pill-copy">
+                        <strong>{asset.symbol}</strong>
+                        <span>{copy.home.portfolioShareLabel(Math.round(asset.allocationPercent))}</span>
+                      </div>
+                      <strong className={asset.contributionPercent >= 0 ? "portfolio-pill-value positive" : "portfolio-pill-value negative"}>
+                        {formatSignedPercent(demoAmount > 0 ? asset.contributionPercent : 0)}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+                <div className="portfolio-total-row compact">
+                  <span>{copy.home.portfolioTotalLabel}</span>
+                  <strong className={animatedPercent >= 0 ? "positive" : "negative"}>
+                    {formatSignedPercent(demoAmount > 0 ? animatedPercent : 0)}
+                  </strong>
+                </div>
+              </div>
               <div className="action-row">
                 <button
                   className="primary-button shimmer-button button-loading"
